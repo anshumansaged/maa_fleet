@@ -4,12 +4,10 @@ import { Calculator, User, Wallet, Fuel, Send, Sparkles, Car, ToggleLeft, Plus, 
 import clsx from 'clsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
-const PREDEFINED_CARS = ['3905', '4030', 'ev2335'];
-
 const ALL_PLATFORMS = [
     { id: 'uber', label: 'Uber', hasComm: true },
     { id: 'inDrive', label: 'InDrive', hasComm: false },
-    { id: 'yatri', label: 'Yatri Sathi', hasComm: true, autoCalculated: true }, // Auto Comm
+    { id: 'yatri', label: 'Yatri Sathi', hasComm: true },
     { id: 'rapido', label: 'Rapido', hasComm: false },
     { id: 'offline', label: 'Offline', hasComm: false },
 ];
@@ -36,8 +34,6 @@ export default function DriverForm() {
     const [cash, setCash] = useState({});
 
     // Advanced Tracking
-    const [yatriTrips, setYatriTrips] = useState('');
-    const [uberFixedComm, setUberFixedComm] = useState(true);
     const [fuelEntries, setFuelEntries] = useState([{ id: Date.now(), amount: '', type: 'CNG' }]);
     const [expenses, setExpenses] = useState({ otherExpenses: '', onlinePayments: '' });
 
@@ -82,10 +78,8 @@ export default function DriverForm() {
 
     // Auto Commissions
     const totalCommission = activePlatforms.reduce((s, p) => {
-        if (p === 'uber' && uberFixedComm) return s + 117;
-        if (p === 'yatri') return s + (v(yatriTrips) * 10);
         const plat = ALL_PLATFORMS.find(x => x.id === p);
-        return s + (plat?.hasComm && !plat.autoCalculated ? v(commissions[p + 'Comm']) : 0);
+        return s + (plat?.hasComm ? v(commissions[p + 'Comm']) : 0);
     }, 0);
 
     const netEarnings = totalEarnings - totalCommission;
@@ -148,9 +142,8 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
 
                 uber: v(earnings.uber), inDrive: v(earnings.inDrive), yatri: v(earnings.yatri), rapido: v(earnings.rapido), offline: v(earnings.offline),
 
-                // For auto-commissions, explicitly send the calculated amounts so the backend correctly stores it
-                uberComm: activePlatforms.includes('uber') && uberFixedComm ? 117 : v(commissions.uberComm),
-                yatriComm: activePlatforms.includes('yatri') ? v(yatriTrips) * 10 : v(commissions.yatriComm),
+                uberComm: v(commissions.uberComm),
+                yatriComm: v(commissions.yatriComm),
 
                 uberCash: v(cash.uberCash), inDriveCash: v(cash.inDriveCash),
                 yatriCash: getPlatformCash('yatri'), rapidoCash: getPlatformCash('rapido'), offlineCash: getPlatformCash('offline'),
@@ -165,7 +158,7 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
 
             // Reset Form heavily
             setEarnings({}); setCommissions({}); setCash({});
-            setYatriTrips(''); setCashToCashier('');
+            setCashToCashier('');
             setStartKm(''); setEndKm('');
             setDriverTookSalary(false);
             setFuelEntries([{ id: Date.now(), amount: '', type: 'CNG' }]);
@@ -264,20 +257,6 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
                                 <div key={p.id} className="surface-card p-4 sm:p-5">
                                     <div className="flex justify-between items-center mb-4">
                                         <h4 className="font-extrabold text-brand-700 text-sm sm:text-base">{p.label}</h4>
-
-                                        {/* Auto Commission Toggles / Inputs inline in header */}
-                                        {p.id === 'uber' && (
-                                            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm cursor-pointer">
-                                                <input type="checkbox" checked={uberFixedComm} onChange={e => setUberFixedComm(e.target.checked)} className="accent-brand-600 w-4 h-4" />
-                                                Auto Fixed ₹117 Comm
-                                            </label>
-                                        )}
-                                        {p.id === 'yatri' && (
-                                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-amber-100 shadow-sm">
-                                                <span className="text-[10px] font-bold text-amber-600 uppercase">Trips Done</span>
-                                                <input type="number" placeholder="0" value={yatriTrips} onChange={e => setYatriTrips(e.target.value)} className="w-16 outline-none bg-transparent font-bold tabular-nums text-right text-sm text-slate-800" />
-                                            </div>
-                                        )}
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
@@ -300,20 +279,13 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
                                                     ['yatri', 'rapido', 'offline'].includes(p.id) ? "bg-emerald-50 text-emerald-700 border-dashed" : "focus:!border-emerald-400")} />
                                         </div>
 
-                                        {/* Custom Manual Commission for non auto-calculated active platforms */}
-                                        {p.hasComm && (!p.autoCalculated && !(p.id === 'uber' && uberFixedComm)) && (
+                                        {/* Custom Manual Commission */}
+                                        {p.hasComm && (
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase">Commission</label>
                                                 <input type="number" step="0.01" placeholder="0.00"
                                                     value={commissions[p.id + 'Comm'] || ''} onChange={e => setCommissions({ ...commissions, [p.id + 'Comm']: e.target.value })}
                                                     className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-violet-400" />
-                                            </div>
-                                        )}
-                                        {/* Display Auto Commission for Yatri and Uber */}
-                                        {(p.id === 'yatri' || (p.id === 'uber' && uberFixedComm)) && (
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase flex justify-between">Commission <span className="text-[8px] bg-violet-100 text-violet-700 px-1.5 rounded">Auto</span></label>
-                                                <input type="text" disabled value={`₹${p.id === 'uber' ? 117 : v(yatriTrips) * 10}`} className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold bg-violet-50 text-violet-700 border-dashed" />
                                             </div>
                                         )}
                                     </div>
