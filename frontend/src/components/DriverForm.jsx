@@ -38,7 +38,6 @@ export default function DriverForm() {
     const [expenses, setExpenses] = useState({ otherExpenses: '', onlinePayments: '' });
 
     // Payment Logic
-    const [driverTookSalary, setDriverTookSalary] = useState(false);
     const [cashToCashier, setCashToCashier] = useState('');
 
     useEffect(() => { fetchDrivers(); }, []);
@@ -97,13 +96,8 @@ export default function DriverForm() {
 
     const driverSalary = netEarnings * driverPercentage;
 
-    let cashInHand = totalCash - totalExpenses - onlinePayments;
-    let pendingSalary = driverSalary;
-
-    if (driverTookSalary) {
-        cashInHand -= driverSalary;
-        pendingSalary = 0;
-    }
+    let cashInHand = totalCash - totalExpenses - onlinePayments - driverSalary;
+    let pendingSalary = 0; // Salary is always paid instantly from cash now
 
     // Mathematical Fix: If cash in hand is negative (Fleet owes driver), 
     // and the cashier PAYS the driver (cashToCashier is positive amount given to driver),
@@ -129,7 +123,7 @@ Comm: ₹${totalCommission} | Fuel: ₹${totalFuel}
 Other: ₹${v(expenses.otherExpenses)} | Online Pay: ₹${onlinePayments}
 
 *📊 Summary*
-Salary (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)} ${driverTookSalary ? '(Paid from cash)' : '(Pending)'}
+Salary (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)} (Paid directly from cash)
 Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
 ━━━━━━━━━━━━━━━━`);
     };
@@ -143,7 +137,7 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
                 startKm: tStartKm, endKm: tEndKm, totalKm, yatriTrips: parseInt(yatriTrips) || 0,
                 cashToCashier: v(cashToCashier),
                 fuelDetails: fuelEntries.filter(f => v(f.amount) > 0).map(f => ({ amount: v(f.amount), type: f.type })),
-                driverSalaryPaid: driverTookSalary, // if applicable later
+                driverSalaryPaid: true, // Hardcoded: driver always takes salary
 
                 uber: v(earnings.uber), inDrive: v(earnings.inDrive), yatri: v(earnings.yatri), rapido: v(earnings.rapido), offline: v(earnings.offline),
 
@@ -165,7 +159,6 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
             setEarnings({}); setCommissions({}); setCash({});
             setCashToCashier('');
             setStartKm(''); setEndKm('');
-            setDriverTookSalary(false);
             setFuelEntries([{ id: Date.now(), amount: '', type: 'CNG' }]);
             setExpenses({ otherExpenses: '', onlinePayments: '' });
         } catch (error) { alert("Error saving record."); }
@@ -362,16 +355,7 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
                         <div className="bg-gradient-to-br from-slate-900 to-brand-950 text-white rounded-[2rem] p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
                             <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
 
-                            {/* Salary Checkbox */}
-                            <label className="flex items-center gap-3 p-4 bg-white/10 border border-white/20 rounded-2xl cursor-pointer hover:bg-white/15 transition group">
-                                <input type="checkbox" checked={driverTookSalary} onChange={e => setDriverTookSalary(e.target.checked)} className="accent-emerald-400 w-5 h-5 cursor-pointer" />
-                                <div>
-                                    <p className="text-sm font-bold text-white group-hover:text-emerald-300 transition">Driver Took Salary Today</p>
-                                    <p className="text-[10px] text-brand-200 mt-1 uppercase tracking-wider">Deducts ₹{driverSalary.toFixed(2)} from Cash in Hand directly.</p>
-                                </div>
-                            </label>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-white/10">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
                                 <div>
                                     <p className="text-xs font-bold text-brand-300 uppercase tracking-widest mb-1">Cashier Must Collect</p>
                                     <p className="text-4xl font-black tabular-nums tracking-tighter text-white">₹{cashInHand.toFixed(0)}</p>
@@ -422,8 +406,8 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
                         </Section>
                         <Section title={`Driver Pay (${(driverPercentage * 100).toFixed(0)}%)`}>
                             <Row label="Earned Salary" value={driverSalary} />
-                            <Row label="Paid Today" value={driverTookSalary ? driverSalary : 0} rose={driverTookSalary} />
-                            <Row label="Pending" value={pendingSalary} warning={pendingSalary > 0} />
+                            <Row label="Paid Today" value={driverSalary} rose />
+                            <Row label="Pending" value={0} />
                         </Section>
                         <Section title="Deductions">
                             <Row label="Total Incoming Cash" value={totalCash} />
