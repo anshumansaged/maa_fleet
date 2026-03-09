@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import DriverForm from './components/DriverForm';
-import DriverForm from './components/DriverForm';
 import AdminPanel from './components/AdminPanel';
 import PinGate from './components/PinGate';
 import { CarFront, Wallet, BarChart3, LogOut } from 'lucide-react';
