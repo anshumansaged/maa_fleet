@@ -76,8 +76,8 @@ app.get('/api/drivers', async (req, res) => {
     const driversWithBalance = drivers.map(d => {
       let balance = 0;
       d.records.forEach(r => {
-        balance += r.driverSalary;
-        balance -= r.cashInHand;
+        balance += r.pendingSalary;
+        balance -= (r.cashInHand - r.cashToCashier); // Driver keeps fleet money = balance goes down
       });
       d.settlements.forEach(s => {
         balance += s.amount;
@@ -111,6 +111,12 @@ app.post('/api/records', async (req, res) => {
     if (!driver) return res.status(404).json({ error: 'Driver not found' });
 
     const val = (num) => isNaN(parseFloat(num)) ? 0 : parseFloat(num);
+    const intVal = (num) => isNaN(parseInt(num, 10)) ? 0 : parseInt(num, 10);
+
+    const startKm = val(inputs.startKm), endKm = val(inputs.endKm), totalKm = val(inputs.totalKm);
+    const yatriTrips = intVal(inputs.yatriTrips);
+    const cashToCashier = val(inputs.cashToCashier);
+    const fuelDetails = Array.isArray(inputs.fuelDetails) ? inputs.fuelDetails : [];
 
     const uber = val(inputs.uber), inDrive = val(inputs.inDrive), yatri = val(inputs.yatri), rapido = val(inputs.rapido), offline = val(inputs.offline);
     const uberComm = val(inputs.uberComm), yatriComm = val(inputs.yatriComm);
@@ -132,6 +138,7 @@ app.post('/api/records', async (req, res) => {
       data: {
         driverId, carNumber,
         date: date ? new Date(date) : new Date(),
+        startKm, endKm, totalKm, yatriTrips, cashToCashier, fuelDetails,
         uber, inDrive, yatri, rapido, offline,
         uberComm, yatriComm,
         uberCash, inDriveCash, yatriCash, rapidoCash, offlineCash,
@@ -320,8 +327,8 @@ app.get('/api/analytics/drivers', async (req, res) => {
         where: { ...where, driverId: driver.id },
         _sum: {
           totalEarnings: true, netEarnings: true, totalCash: true,
-          totalExpenses: true, pendingSalary: true, cashInHand: true,
-          driverSalary: true, fuel: true, onlinePayments: true,
+          totalExpenses: true, pendingSalary: true, cashInHand: true, cashToCashier: true,
+          driverSalary: true, fuel: true, onlinePayments: true, totalKm: true
         },
         _count: { id: true }
       });
@@ -350,6 +357,8 @@ app.get('/api/analytics/drivers', async (req, res) => {
         pendingSalary: agg._sum.pendingSalary || 0,
         cashCollected: agg._sum.totalCash || 0,
         cashInHand: agg._sum.cashInHand || 0,
+        cashToCashier: agg._sum.cashToCashier || 0,
+        totalKm: agg._sum.totalKm || 0,
         miscExpenses: totalMisc,
         profit,
         trips: agg._count.id,

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Calculator, CheckCircle2, User, Wallet, DollarSign, Fuel, Send, Sparkles, TrendingUp, Car, Zap, ToggleLeft } from 'lucide-react';
+import { Calculator, User, Wallet, Fuel, Send, Sparkles, Car, ToggleLeft, Plus, Trash2, ShieldCheck, Route } from 'lucide-react';
 import clsx from 'clsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
@@ -9,7 +9,7 @@ const PREDEFINED_CARS = ['3905', '4030', 'ev2335'];
 const ALL_PLATFORMS = [
     { id: 'uber', label: 'Uber', hasComm: true },
     { id: 'inDrive', label: 'InDrive', hasComm: false },
-    { id: 'yatri', label: 'Yatri', hasComm: true },
+    { id: 'yatri', label: 'Yatri Sathi', hasComm: true, autoCalculated: true }, // Auto Comm
     { id: 'rapido', label: 'Rapido', hasComm: false },
     { id: 'offline', label: 'Offline', hasComm: false },
 ];
@@ -20,17 +20,31 @@ export default function DriverForm() {
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
 
+    // Basic Info
     const [driverId, setDriverId] = useState('');
     const [carNumber, setCarNumber] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
 
-    // Toggle-able platforms
-    const [activePlatforms, setActivePlatforms] = useState(['uber', 'offline']);
+    // Odometer
+    const [startKm, setStartKm] = useState('');
+    const [endKm, setEndKm] = useState('');
 
+    // Platforms
+    const [activePlatforms, setActivePlatforms] = useState(['uber', 'offline']);
     const [earnings, setEarnings] = useState({});
     const [commissions, setCommissions] = useState({});
     const [cash, setCash] = useState({});
-    const [expenses, setExpenses] = useState({ fuel: '', otherExpenses: '', onlinePayments: '' });
+
+    // Advanced Tracking
+    const [yatriTrips, setYatriTrips] = useState('');
+    const [uberFixedComm, setUberFixedComm] = useState(true);
+    const [fuelEntries, setFuelEntries] = useState([{ id: Date.now(), amount: '', type: 'CNG' }]);
+    const [expenses, setExpenses] = useState({ otherExpenses: '', onlinePayments: '' });
+
+    // Payment Logic
+    const [driverTookSalary, setDriverTookSalary] = useState(false);
+    const [cashToCashier, setCashToCashier] = useState('');
+
     useEffect(() => { fetchDrivers(); }, []);
 
     const fetchDrivers = async () => {
@@ -42,85 +56,106 @@ export default function DriverForm() {
         finally { setLoading(false); }
     };
 
-    const handleCreateDriver = async () => {
-        const name = prompt("Enter new driver name:");
-        if (!name) return;
-        const phone = prompt("Phone (optional):");
-        const perc = prompt("Salary % (e.g. 0.35 for 35%):", "0.35");
-        try {
-            await axios.post(`${API_URL}/drivers`, { name, phone, salaryPercentage: parseFloat(perc) });
-            fetchDrivers();
-        } catch (e) { alert("Failed to add driver"); }
-    };
-
     const togglePlatform = (id) => {
         setActivePlatforms(prev =>
             prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
         );
     };
 
+    const addFuelEntry = () => setFuelEntries([...fuelEntries, { id: Date.now(), amount: '', type: 'CNG' }]);
+    const removeFuelEntry = (id) => setFuelEntries(fuelEntries.filter(f => f.id !== id));
+    const updateFuelEntry = (id, field, value) => {
+        setFuelEntries(fuelEntries.map(f => f.id === id ? { ...f, [field]: value } : f));
+    }
+
     const v = (s) => { const n = parseFloat(s); return isNaN(n) ? 0 : n; };
 
     const selectedDriver = drivers.find(d => d.id === driverId);
     const driverPercentage = selectedDriver ? selectedDriver.salaryPercentage : 0.35;
 
-    // Calculations only on active platforms
+    // Calculations
+    const tStartKm = v(startKm);
+    const tEndKm = v(endKm);
+    const totalKm = (tEndKm > tStartKm) ? tEndKm - tStartKm : 0;
+
     const totalEarnings = activePlatforms.reduce((s, p) => s + v(earnings[p]), 0);
+
+    // Auto Commissions
     const totalCommission = activePlatforms.reduce((s, p) => {
+        if (p === 'uber' && uberFixedComm) return s + 117;
+        if (p === 'yatri') return s + (v(yatriTrips) * 10);
         const plat = ALL_PLATFORMS.find(x => x.id === p);
-        return s + (plat?.hasComm ? v(commissions[p + 'Comm']) : 0);
+        return s + (plat?.hasComm && !plat.autoCalculated ? v(commissions[p + 'Comm']) : 0);
     }, 0);
+
     const netEarnings = totalEarnings - totalCommission;
 
-    // Sync Offline Cash with Offline Earnings
-    const effectiveOfflineCash = v(earnings.offline);
-    const totalCash = activePlatforms.reduce((s, p) => {
-        if (p === 'offline') return s + effectiveOfflineCash;
-        return s + v(cash[p + 'Cash']);
-    }, 0);
+    // Auto Cash (Yatri, Rapido, Offline auto-match earnings)
+    const getPlatformCash = (p) => {
+        if (['offline', 'yatri', 'rapido'].includes(p)) return v(earnings[p]);
+        return v(cash[p + 'Cash']);
+    };
+    const totalCash = activePlatforms.reduce((s, p) => s + getPlatformCash(p), 0);
 
-    const totalExpenses = v(expenses.fuel) + v(expenses.otherExpenses);
+    const totalFuel = fuelEntries.reduce((s, f) => s + v(f.amount), 0);
+    const totalExpenses = totalFuel + v(expenses.otherExpenses);
     const onlinePayments = v(expenses.onlinePayments);
+
     const driverSalary = netEarnings * driverPercentage;
 
     let cashInHand = totalCash - totalExpenses - onlinePayments;
-    const pendingSalary = driverSalary; // Always fully pending on the daily record level now
+    let pendingSalary = driverSalary;
+
+    if (driverTookSalary) {
+        cashInHand -= driverSalary;
+        pendingSalary = 0;
+    }
+
+    const remainingCash = cashInHand - v(cashToCashier);
 
     const generateWhatsAppMessage = () => {
-        const driverName = selectedDriver?.name || 'Unknown';
-        const platformLines = activePlatforms.map(p => {
-            const plat = ALL_PLATFORMS.find(x => x.id === p);
-            return `${plat.label}: ₹${v(earnings[p])}`;
-        }).join('\n');
-
-        return encodeURIComponent(`*Daily Summary - Maa Fleet* 🚗
-Date: ${date} | Driver: *${driverName}* | Car: *${carNumber}*
+        return encodeURIComponent(`*Shift Report - Maa Fleet* 🚗
+Date: ${date} | Driver: *${selectedDriver?.name || 'Unknown'}*
+Km: ${tStartKm} to ${tEndKm} (Total: *${totalKm}km*)
 ━━━━━━━━━━━━━━━━
 *💰 Earnings*
-${platformLines}
+${activePlatforms.map(p => {
+            const plat = ALL_PLATFORMS.find(x => x.id === p);
+            return `${plat.label}: ₹${v(earnings[p])}`;
+        }).join('\n')}
 *Gross: ₹${totalEarnings}*
 
 *⛽ Deductions*
-Commissions: ₹${totalCommission} | Fuel: ₹${v(expenses.fuel)}
-Other: ₹${v(expenses.otherExpenses)} | Online: ₹${onlinePayments}
+Comm: ₹${totalCommission} | Fuel: ₹${totalFuel}
+Other: ₹${v(expenses.otherExpenses)} | Online Pay: ₹${onlinePayments}
 
 *📊 Summary*
-Net: ₹${netEarnings.toFixed(2)}
-Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
-✨ *Cash in Hand: ₹${cashInHand.toFixed(2)}*`);
+Salary (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)} ${driverTookSalary ? '(Paid from cash)' : '(Pending)'}
+Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
+━━━━━━━━━━━━━━━━`);
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            // Build full payload with 0s for inactive platforms
             const payload = {
                 driverId, carNumber, date,
+                startKm: tStartKm, endKm: tEndKm, totalKm, yatriTrips: parseInt(yatriTrips) || 0,
+                cashToCashier: v(cashToCashier),
+                fuelDetails: fuelEntries.filter(f => v(f.amount) > 0).map(f => ({ amount: v(f.amount), type: f.type })),
+                driverSalaryPaid: driverTookSalary, // if applicable later
+
                 uber: v(earnings.uber), inDrive: v(earnings.inDrive), yatri: v(earnings.yatri), rapido: v(earnings.rapido), offline: v(earnings.offline),
-                uberComm: v(commissions.uberComm), yatriComm: v(commissions.yatriComm),
-                uberCash: v(cash.uberCash), inDriveCash: v(cash.inDriveCash), yatriCash: v(cash.yatriCash), rapidoCash: v(cash.rapidoCash), offlineCash: effectiveOfflineCash,
-                fuel: v(expenses.fuel), otherExpenses: v(expenses.otherExpenses), onlinePayments: v(expenses.onlinePayments)
+
+                // For auto-commissions, explicitly send the calculated amounts so the backend correctly stores it
+                uberComm: activePlatforms.includes('uber') && uberFixedComm ? 117 : v(commissions.uberComm),
+                yatriComm: activePlatforms.includes('yatri') ? v(yatriTrips) * 10 : v(commissions.yatriComm),
+
+                uberCash: v(cash.uberCash), inDriveCash: v(cash.inDriveCash),
+                yatriCash: getPlatformCash('yatri'), rapidoCash: getPlatformCash('rapido'), offlineCash: getPlatformCash('offline'),
+
+                fuel: totalFuel, otherExpenses: v(expenses.otherExpenses), onlinePayments: v(expenses.onlinePayments)
             };
 
             await axios.post(`${API_URL}/records`, payload);
@@ -128,9 +163,13 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
             window.open(`https://wa.me/?text=${generateWhatsAppMessage()}`, '_blank');
             setTimeout(() => setSuccess(false), 3000);
 
+            // Reset Form heavily
             setEarnings({}); setCommissions({}); setCash({});
-            setExpenses({ fuel: '', otherExpenses: '', onlinePayments: '' });
-            setCarNumber('');
+            setYatriTrips(''); setCashToCashier('');
+            setStartKm(''); setEndKm('');
+            setDriverTookSalary(false);
+            setFuelEntries([{ id: Date.now(), amount: '', type: 'CNG' }]);
+            setExpenses({ otherExpenses: '', onlinePayments: '' });
         } catch (error) { alert("Error saving record."); }
         finally { setSubmitting(false); }
     };
@@ -146,8 +185,6 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
 
     return (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 pb-10">
-
-            {/* FORM */}
             <div className="xl:col-span-8">
                 <form onSubmit={handleSubmit} className="glass-panel p-5 sm:p-8 md:p-10 space-y-0">
 
@@ -158,34 +195,43 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
                                 <span className="p-2 sm:p-3 bg-gradient-to-br from-brand-100 to-pink-100 rounded-xl sm:rounded-2xl">
                                     <Calculator className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600" />
                                 </span>
-                                New Shift Record
+                                Advanced Trip Entry
                             </h2>
-                            <p className="text-slate-400 mt-1.5 sm:mt-2 text-xs sm:text-sm">Select platforms used today, then fill in only what applies.</p>
+                            <p className="text-slate-400 mt-1.5 sm:mt-2 text-xs sm:text-sm">Enter detailed trip & financial metrics.</p>
                         </div>
                         <input type="date" value={date} onChange={e => setDate(e.target.value)} className="clean-input rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3 text-sm shadow-sm w-full sm:w-auto" required />
                     </div>
 
-                    {/* Driver & Car */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 py-6 sm:py-8 border-b border-brand-50">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-brand-400 uppercase tracking-wider flex items-center gap-2">
-                                <User className="w-3.5 h-3.5" /> Driver
-                            </label>
-                            <div className="flex gap-2">
-                                <select value={driverId} onChange={e => setDriverId(e.target.value)} className="clean-input w-full rounded-2xl px-4 py-3 text-sm appearance-none cursor-pointer" required>
+                    {/* Section 1: Basic Info & KM Tracker */}
+                    <div className="py-6 sm:py-8 border-b border-brand-50 space-y-6">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Route className="w-4 h-4 text-brand-400" />
+                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">1. Basic Info & KM Tracking</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Driver</label>
+                                <select value={driverId} onChange={e => setDriverId(e.target.value)} className="clean-input w-full rounded-2xl px-4 py-3 text-sm cursor-pointer" required>
                                     <option value="" disabled>Select driver...</option>
                                     {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                 </select>
                             </div>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-brand-400 uppercase tracking-wider flex items-center gap-2">
-                                <Car className="w-3.5 h-3.5" /> Vehicle
-                            </label>
-                            <select value={carNumber} onChange={e => setCarNumber(e.target.value)} className="clean-input w-full rounded-2xl px-4 py-3 text-sm appearance-none uppercase cursor-pointer" required>
-                                <option value="" disabled>Select car...</option>
-                                {PREDEFINED_CARS.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-slate-500 flex items-center gap-2"><Car className="w-3.5 h-3.5" /> Vehicle</label>
+                                <select value={carNumber} onChange={e => setCarNumber(e.target.value)} className="clean-input w-full rounded-2xl px-4 py-3 text-sm uppercase cursor-pointer" required>
+                                    <option value="" disabled>Select car...</option>
+                                    {PREDEFINED_CARS.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div className="space-y-1.5 border border-brand-100 bg-brand-50/30 p-4 rounded-2xl">
+                                <label className="text-xs font-bold text-slate-500">Start KM</label>
+                                <input type="number" value={startKm} onChange={e => setStartKm(e.target.value)} className="clean-input w-full rounded-xl px-4 py-2 text-sm bg-white" placeholder="0" />
+                            </div>
+                            <div className="space-y-1.5 border border-brand-100 bg-brand-50/30 p-4 rounded-2xl">
+                                <label className="text-xs font-bold text-slate-500">End KM</label>
+                                <input type="number" value={endKm} onChange={e => setEndKm(e.target.value)} className="clean-input w-full rounded-xl px-4 py-2 text-sm bg-white" placeholder="0" />
+                                <div className="text-right text-xs font-extrabold text-brand-600 mt-2">Total Distance: {totalKm} km</div>
+                            </div>
                         </div>
                     </div>
 
@@ -193,143 +239,195 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
                     <div className="py-5 sm:py-6 border-b border-brand-50">
                         <div className="flex items-center gap-2 mb-3 sm:mb-4">
                             <ToggleLeft className="w-4 h-4 text-brand-400" />
-                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">Active Platforms Today</span>
+                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">2. Active Platforms Today</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {ALL_PLATFORMS.map(p => (
                                 <button key={p.id} type="button" onClick={() => togglePlatform(p.id)}
-                                    className={clsx(
-                                        "px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 border-2 active:scale-95",
-                                        activePlatforms.includes(p.id)
-                                            ? "bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-500/20"
-                                            : "bg-white text-slate-400 border-gray-200 hover:border-brand-300 hover:text-brand-600"
-                                    )}>
+                                    className={clsx("px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 border-2 active:scale-95",
+                                        activePlatforms.includes(p.id) ? "bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-500/20" : "bg-white text-slate-400 border-gray-200 hover:border-brand-300 hover:text-brand-600")}>
                                     {p.label}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    {/* Dynamic Data Grid — only active platforms */}
-                    {activePlatformData.length > 0 ? (
-                        <div className="py-8 space-y-6">
-                            {/* Earnings + Cash — Card-based for mobile, table for desktop */}
-                            <div className="surface-card p-4 sm:p-6">
-                                {/* Desktop Table */}
-                                <div className="hidden sm:block overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="text-xs font-bold text-brand-400 uppercase tracking-wider border-b border-brand-50">
-                                                <th className="text-left pb-3">Platform</th>
-                                                <th className="text-right pb-3 pl-4">Earned (₹)</th>
-                                                <th className="text-right pb-3 pl-4">Cash (₹)</th>
-                                                <th className="text-right pb-3 pl-4">Commission (₹)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-brand-50">
-                                            {activePlatformData.map(p => (
-                                                <tr key={p.id} className="group">
-                                                    <td className="py-3 font-bold text-slate-700 group-hover:text-brand-600 transition-colors">{p.label}</td>
-                                                    <td className="py-3 pl-4">
-                                                        <input type="number" step="0.01" placeholder="0.00"
-                                                            value={earnings[p.id] || ''} onChange={e => setEarnings({ ...earnings, [p.id]: e.target.value })}
-                                                            className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-emerald-400 focus:!shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" />
-                                                    </td>
-                                                    <td className="py-3 pl-4">
-                                                        {p.id === 'offline' ? (
-                                                            <input type="number" value={earnings.offline || ''} disabled
-                                                                className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block bg-brand-50/50 text-slate-400 border-dashed cursor-not-allowed" />
-                                                        ) : (
-                                                            <input type="number" step="0.01" placeholder="0.00"
-                                                                value={cash[p.id + 'Cash'] || ''} onChange={e => setCash({ ...cash, [p.id + 'Cash']: e.target.value })}
-                                                                className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-amber-400 focus:!shadow-[0_0_0_4px_rgba(251,191,36,0.12)]" />
-                                                        )}
-                                                    </td>
-                                                    <td className="py-3 pl-4">
-                                                        {p.hasComm ? (
-                                                            <input type="number" step="0.01" placeholder="0.00"
-                                                                value={commissions[p.id + 'Comm'] || ''} onChange={e => setCommissions({ ...commissions, [p.id + 'Comm']: e.target.value })}
-                                                                className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-violet-400 focus:!shadow-[0_0_0_4px_rgba(167,139,250,0.12)]" />
-                                                        ) : (
-                                                            <span className="text-slate-300 text-xs block text-right">—</span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                    {/* Platform Earnings & Cash Inputs */}
+                    {activePlatformData.length > 0 && (
+                        <div className="py-6 sm:py-8 border-b border-brand-50 space-y-6">
+                            <div className="flex items-center gap-2">
+                                <Wallet className="w-4 h-4 text-brand-400" />
+                                <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">3. Platform Data</span>
+                            </div>
 
-                                {/* Mobile Cards */}
-                                <div className="sm:hidden space-y-4">
-                                    {activePlatformData.map(p => (
-                                        <div key={p.id} className="bg-brand-50/30 rounded-2xl p-4 space-y-3">
-                                            <h4 className="font-bold text-brand-700 text-sm">{p.label}</h4>
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Earned</label>
-                                                    <input type="number" step="0.01" placeholder="0.00"
-                                                        value={earnings[p.id] || ''} onChange={e => setEarnings({ ...earnings, [p.id]: e.target.value })}
-                                                        className="clean-input w-full rounded-xl px-3 py-2.5 text-sm text-right font-bold focus:!border-emerald-400" />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Cash</label>
-                                                    {p.id === 'offline' ? (
-                                                        <input type="number" value={earnings.offline || ''} disabled
-                                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm text-right font-bold bg-brand-50/50 text-slate-400 border-dashed cursor-not-allowed" />
-                                                    ) : (
-                                                        <input type="number" step="0.01" placeholder="0.00"
-                                                            value={cash[p.id + 'Cash'] || ''} onChange={e => setCash({ ...cash, [p.id + 'Cash']: e.target.value })}
-                                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm text-right font-bold focus:!border-amber-400" />
-                                                    )}
-                                                </div>
+                            {activePlatformData.map(p => (
+                                <div key={p.id} className="surface-card p-4 sm:p-5">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="font-extrabold text-brand-700 text-sm sm:text-base">{p.label}</h4>
+
+                                        {/* Auto Commission Toggles / Inputs inline in header */}
+                                        {p.id === 'uber' && (
+                                            <label className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm cursor-pointer">
+                                                <input type="checkbox" checked={uberFixedComm} onChange={e => setUberFixedComm(e.target.checked)} className="accent-brand-600 w-4 h-4" />
+                                                Auto Fixed ₹117 Comm
+                                            </label>
+                                        )}
+                                        {p.id === 'yatri' && (
+                                            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-amber-100 shadow-sm">
+                                                <span className="text-[10px] font-bold text-amber-600 uppercase">Trips Done</span>
+                                                <input type="number" placeholder="0" value={yatriTrips} onChange={e => setYatriTrips(e.target.value)} className="w-16 outline-none bg-transparent font-bold tabular-nums text-right text-sm text-slate-800" />
                                             </div>
-                                            {p.hasComm && (
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Commission</label>
-                                                    <input type="number" step="0.01" placeholder="0.00"
-                                                        value={commissions[p.id + 'Comm'] || ''} onChange={e => setCommissions({ ...commissions, [p.id + 'Comm']: e.target.value })}
-                                                        className="clean-input w-full rounded-xl px-3 py-2.5 text-sm text-right font-bold focus:!border-violet-400" />
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
+                                        )}
+                                    </div>
 
-                            {/* Expenses */}
-                            <div className="surface-card p-5">
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="p-2 rounded-xl bg-rose-100 text-rose-600"><Fuel className="w-5 h-5" /></div>
-                                    <h3 className="text-sm font-extrabold text-slate-800">Expenses</h3>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    {[{ key: 'fuel', label: 'Fuel' }, { key: 'otherExpenses', label: 'Other Expenses' }, { key: 'onlinePayments', label: 'Digital / Online Pay' }].map(item => (
-                                        <div key={item.key} className="space-y-1.5">
-                                            <label className="text-xs font-semibold text-slate-400">{item.label}</label>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase">Earned</label>
                                             <input type="number" step="0.01" placeholder="0.00"
-                                                value={expenses[item.key]} onChange={e => setExpenses({ ...expenses, [item.key]: e.target.value })}
-                                                className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-rose-400 focus:!shadow-[0_0_0_4px_rgba(251,113,133,0.12)]" />
+                                                value={earnings[p.id] || ''} onChange={e => setEarnings({ ...earnings, [p.id]: e.target.value })}
+                                                className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-brand-400" />
                                         </div>
-                                    ))}
+
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] items-center flex justify-between font-bold text-slate-400 uppercase">
+                                                Cash Received {['yatri', 'rapido', 'offline'].includes(p.id) && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 rounded">Auto</span>}
+                                            </label>
+                                            <input type="number" step="0.01" placeholder="0.00"
+                                                value={['yatri', 'rapido', 'offline'].includes(p.id) ? (earnings[p.id] || '') : (cash[p.id + 'Cash'] || '')}
+                                                onChange={e => !['yatri', 'rapido', 'offline'].includes(p.id) && setCash({ ...cash, [p.id + 'Cash']: e.target.value })}
+                                                disabled={['yatri', 'rapido', 'offline'].includes(p.id)}
+                                                className={clsx("clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold",
+                                                    ['yatri', 'rapido', 'offline'].includes(p.id) ? "bg-emerald-50 text-emerald-700 border-dashed" : "focus:!border-emerald-400")} />
+                                        </div>
+
+                                        {/* Custom Manual Commission for non auto-calculated active platforms */}
+                                        {p.hasComm && (!p.autoCalculated && !(p.id === 'uber' && uberFixedComm)) && (
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase">Commission</label>
+                                                <input type="number" step="0.01" placeholder="0.00"
+                                                    value={commissions[p.id + 'Comm'] || ''} onChange={e => setCommissions({ ...commissions, [p.id + 'Comm']: e.target.value })}
+                                                    className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-violet-400" />
+                                            </div>
+                                        )}
+                                        {/* Display Auto Commission for Yatri and Uber */}
+                                        {(p.id === 'yatri' || (p.id === 'uber' && uberFixedComm)) && (
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase flex justify-between">Commission <span className="text-[8px] bg-violet-100 text-violet-700 px-1.5 rounded">Auto</span></label>
+                                                <input type="text" disabled value={`₹${p.id === 'uber' ? 117 : v(yatriTrips) * 10}`} className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold bg-violet-50 text-violet-700 border-dashed" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="py-16 text-center text-slate-400">
-                            <p className="text-base font-semibold">Select at least one platform above to start entering data.</p>
+                            ))}
                         </div>
                     )}
 
-                    {/* Bottom Controls */}
-                    <div className="py-5 sm:py-6 border-t border-brand-100 flex justify-end">
-                        <button type="submit" disabled={submitting || !driverId || !carNumber || activePlatformData.length === 0}
-                            className={clsx("w-full sm:w-64 py-4 rounded-2xl font-bold text-sm transition-all transform active:scale-95 flex justify-center items-center gap-2.5 shadow-xl",
-                                submitting || !driverId || !carNumber || activePlatformData.length === 0
-                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
-                                    : "bg-gradient-to-r from-brand-600 to-pink-500 text-white shadow-brand-500/30 hover:-translate-y-1 hover:shadow-2xl")}>
-                            {success ? <><Sparkles className="w-5 h-5" /> Synced!</> : submitting ? 'Uploading...' : <><Send className="w-5 h-5" /> Submit & Share</>}
-                        </button>
+                    {/* Expenses & Fuel Arrays */}
+                    <div className="py-6 sm:py-8 border-b border-brand-50 space-y-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Fuel className="w-4 h-4 text-brand-400" />
+                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">4. Expenses & Fuel</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Fuel Dynamic Array */}
+                            <div className="bg-brand-50/30 border border-brand-100 rounded-2xl p-4 sm:p-5 space-y-3">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className="text-sm font-bold text-slate-700">Fuel Entries</h4>
+                                    <button type="button" onClick={addFuelEntry} className="text-xs font-bold text-brand-600 bg-brand-100 hover:bg-brand-200 px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
+                                        <Plus className="w-3.5 h-3.5" /> Add
+                                    </button>
+                                </div>
+                                {fuelEntries.map((f, i) => (
+                                    <div key={f.id} className="flex gap-2 items-center">
+                                        <select value={f.type} onChange={e => updateFuelEntry(f.id, 'type', e.target.value)} className="clean-input w-1/3 rounded-xl px-3 py-2 text-sm font-bold bg-white text-slate-600">
+                                            <option value="CNG">CNG</option>
+                                            <option value="Petrol">Petrol</option>
+                                        </select>
+                                        <input type="number" placeholder="Amount (₹)" value={f.amount} onChange={e => updateFuelEntry(f.id, 'amount', e.target.value)} className="clean-input w-full rounded-xl px-3 py-2 text-sm font-bold focus:!border-rose-400" />
+                                        {fuelEntries.length > 1 && (
+                                            <button type="button" onClick={() => removeFuelEntry(f.id)} className="p-2 text-slate-300 hover:text-rose-500 transition hover:bg-rose-50 rounded-xl">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                                <div className="text-right text-xs font-extrabold text-brand-600 mt-2">Total Fuel: ₹{totalFuel}</div>
+                            </div>
+
+                            {/* Other Exps */}
+                            <div className="space-y-4">
+                                <div className="bg-brand-50/30 border border-brand-100 rounded-2xl p-4 sm:p-5 space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold text-slate-500">Other Miscellaneous Expenses</label>
+                                        <input type="number" step="0.01" placeholder="0.00"
+                                            value={expenses.otherExpenses} onChange={e => setExpenses({ ...expenses, otherExpenses: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-rose-400" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-semibold text-slate-500">Online Payments (Paid via UPI)</label>
+                                        <input type="number" step="0.01" placeholder="0.00"
+                                            value={expenses.onlinePayments} onChange={e => setExpenses({ ...expenses, onlinePayments: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-amber-400" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Final Cashier Exchange View */}
+                    <div className="py-6 sm:py-8 border-brand-50 space-y-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <ShieldCheck className="w-4 h-4 text-brand-400" />
+                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">5. Payment Processing & Cashier Handover</span>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-slate-900 to-brand-950 text-white rounded-[2rem] p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+                            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+
+                            {/* Salary Checkbox */}
+                            <label className="flex items-center gap-3 p-4 bg-white/10 border border-white/20 rounded-2xl cursor-pointer hover:bg-white/15 transition group">
+                                <input type="checkbox" checked={driverTookSalary} onChange={e => setDriverTookSalary(e.target.checked)} className="accent-emerald-400 w-5 h-5 cursor-pointer" />
+                                <div>
+                                    <p className="text-sm font-bold text-white group-hover:text-emerald-300 transition">Driver Took Salary Today</p>
+                                    <p className="text-[10px] text-brand-200 mt-1 uppercase tracking-wider">Deducts ₹{driverSalary.toFixed(2)} from Cash in Hand directly.</p>
+                                </div>
+                            </label>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-white/10">
+                                <div>
+                                    <p className="text-xs font-bold text-brand-300 uppercase tracking-widest mb-1">Cashier Must Collect</p>
+                                    <p className="text-4xl font-black tabular-nums tracking-tighter text-white">₹{cashInHand.toFixed(0)}</p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <p className="text-xs font-bold text-amber-300 uppercase tracking-widest">Actual Cash Handover (₹)</p>
+                                    <input type="number" value={cashToCashier} onChange={e => setCashToCashier(e.target.value)} placeholder="0.00"
+                                        className="w-full bg-white/10 border-2 border-white/20 focus:border-brand-400 rounded-xl px-4 py-3 text-2xl font-black tabular-nums text-white placeholder:text-white/20 transition-colors outline-none" />
+                                </div>
+                            </div>
+
+                            {v(cashToCashier) > 0 && (
+                                <div className={clsx("p-4 rounded-xl text-center text-sm font-bold border",
+                                    remainingCash > 0 ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
+                                        remainingCash < 0 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
+                                            "bg-white/10 text-brand-200 border-white/20")}>
+                                    {remainingCash > 0
+                                        ? `Driver still has ₹${remainingCash.toFixed(2)} in hand (Owes Fleet)`
+                                        : remainingCash < 0
+                                            ? `Driver gave ₹${Math.abs(remainingCash).toFixed(2)} extra (Fleet Owes)`
+                                            : "Fully Settled!"}
+                                </div>
+                            )}
+
+                            <button type="submit" disabled={submitting || !driverId || !carNumber || activePlatformData.length === 0}
+                                className={clsx("w-full py-4 rounded-xl font-black text-sm transition-all transform active:scale-95 flex justify-center items-center gap-2.5 shadow-xl mt-4",
+                                    submitting || !driverId || !carNumber || activePlatformData.length === 0
+                                        ? "bg-white/10 text-white/30 cursor-not-allowed shadow-none"
+                                        : "bg-white text-brand-900 hover:bg-brand-50 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)]")}>
+                                {success ? <><Sparkles className="w-5 h-5" /> Synced!</> : submitting ? 'Uploading...' : <><Send className="w-5 h-5" /> Submit & Share Record</>}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -337,20 +435,6 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
             {/* SIDEBAR */}
             <div className="xl:col-span-4">
                 <div className="xl:sticky xl:top-28 space-y-6">
-                    {/* Hero Number */}
-                    <div className="glass-panel p-8 text-center relative overflow-hidden">
-                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-brand-300/40 to-pink-300/40 rounded-full blur-3xl pointer-events-none"></div>
-                        <div className="relative z-10">
-                            <div className="mx-auto w-14 h-14 bg-gradient-to-br from-brand-500 to-pink-500 rounded-2xl shadow-lg shadow-brand-500/30 flex items-center justify-center mb-5 transition-transform hover:scale-110 duration-300">
-                                <Wallet className="w-7 h-7 text-white" />
-                            </div>
-                            <p className="text-xs font-bold text-brand-400 uppercase tracking-[0.2em] mb-3">Cash In Hand</p>
-                            <p className="text-5xl font-black bg-gradient-to-r from-brand-700 via-brand-500 to-pink-500 bg-clip-text text-transparent tracking-tighter">
-                                ₹{cashInHand.toFixed(2)}
-                            </p>
-                        </div>
-                    </div>
-
                     {/* Summary */}
                     <div className="glass-panel p-6 space-y-5">
                         <Section title="Revenue">
@@ -360,13 +444,18 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
                             <Row label="Net Earnings" value={netEarnings} highlight />
                         </Section>
                         <Section title={`Driver Pay (${(driverPercentage * 100).toFixed(0)}%)`}>
-                            <Row label="Salary" value={driverSalary} />
+                            <Row label="Earned Salary" value={driverSalary} />
+                            <Row label="Paid Today" value={driverTookSalary ? driverSalary : 0} rose={driverTookSalary} />
                             <Row label="Pending" value={pendingSalary} warning={pendingSalary > 0} />
                         </Section>
                         <Section title="Deductions">
-                            <Row label="Total Cash" value={totalCash} />
+                            <Row label="Total Incoming Cash" value={totalCash} />
                             <Row label="Fuel & Exp" value={totalExpenses} negative dim />
                             <Row label="Online Pay" value={onlinePayments} negative dim />
+                        </Section>
+                        <Section title="Final Calculation">
+                            <Row label="Cash To Collect" value={cashInHand} highlight />
+                            <Row label="Actual Received" value={v(cashToCashier)} />
                         </Section>
                     </div>
                 </div>
@@ -383,7 +472,7 @@ function Row({ label, value, negative, highlight, warning, dim, rose }) {
     return (
         <div className={clsx("flex justify-between items-center py-1 text-sm", dim ? "text-slate-400" : "text-slate-600", highlight && "bg-brand-50/80 -mx-3 px-3 py-2 rounded-xl")}>
             <span className={clsx("font-medium", highlight && "text-brand-700 font-bold", warning && "text-amber-600 font-bold")}>{label}</span>
-            <span className={clsx("font-bold tabular-nums", highlight && "text-brand-700 text-base", warning && "text-amber-600", rose && "text-rose-500", dim && "text-slate-400")}>
+            <span className={clsx("font-bold tabular-nums", highlight && "text-brand-700 text-base", warning && "text-amber-600", rose && "text-emerald-500", dim && "text-slate-400")}>
                 {negative ? '−' : ''}₹{Math.abs(value).toFixed(2)}
             </span>
         </div>

@@ -28,6 +28,12 @@ model DailyRecord {
   carNumber      String?
   date           DateTime @default(now())
 
+  // --- 0. Trip Metrics ---
+  startKm        Float    @default(0)
+  endKm          Float    @default(0)
+  totalKm        Float    @default(0)
+  yatriTrips     Int      @default(0)
+
   // --- 1. Earnings ---
   uber           Float    @default(0)
   inDrive        Float    @default(0)
@@ -47,9 +53,13 @@ model DailyRecord {
   offlineCash    Float    @default(0)
 
   // --- 6. Expenses ---
-  fuel           Float    @default(0)
+  fuel           Float    @default(0) // legacy, auto-summed
+  fuelDetails    Json?    // Stores array: [{ amount: 100, type: 'CNG' }]
   otherExpenses  Float    @default(0)
   onlinePayments Float    @default(0)
+
+  // --- 7. Cashier Handover ---
+  cashToCashier  Float    @default(0)
 
   // --- Computations ---
   totalEarnings    Float    @default(0)

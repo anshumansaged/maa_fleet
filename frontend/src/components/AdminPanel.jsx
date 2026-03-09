@@ -177,6 +177,8 @@ export default function AdminPanel() {
                                 <th className="px-4 py-4 text-right">Misc Exp</th>
                                 <th className="px-4 py-4 text-right">Profit</th>
                                 <th className="px-4 py-4 text-center">Trips</th>
+                                <th className="px-4 py-4 text-right">Km</th>
+                                <th className="px-4 py-4 text-right text-emerald-600">Cash Given</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-brand-50 text-sm">
@@ -198,10 +200,16 @@ export default function AdminPanel() {
                                     <td className="px-4 py-4 text-center">
                                         <span className="bg-brand-100 text-brand-700 px-3 py-1 rounded-full text-xs font-bold">{d.trips}</span>
                                     </td>
+                                    <td className="px-4 py-4 text-right tabular-nums text-slate-500">
+                                        {d.totalKm || 0}
+                                    </td>
+                                    <td className="px-4 py-4 text-right tabular-nums font-black text-emerald-600">
+                                        ₹{fmt(d.cashToCashier || 0)}
+                                    </td>
                                 </tr>
                             ))}
                             {driverStats.length === 0 && (
-                                <tr><td colSpan="8" className="px-6 py-12 text-center text-slate-400">No driver data for this period.</td></tr>
+                                <tr><td colSpan="10" className="px-6 py-12 text-center text-slate-400">No driver data for this period.</td></tr>
                             )}
                         </tbody>
                     </table>
