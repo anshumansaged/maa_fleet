@@ -105,7 +105,12 @@ export default function DriverForm() {
         pendingSalary = 0;
     }
 
-    const remainingCash = cashInHand - v(cashToCashier);
+    // Mathematical Fix: If cash in hand is negative (Fleet owes driver), 
+    // and the cashier PAYS the driver (cashToCashier is positive amount given to driver),
+    // they offset each other.
+    const remainingCash = cashInHand >= 0
+        ? cashInHand - v(cashToCashier) // Driver has cash, gives some to cashier
+        : cashInHand + v(cashToCashier); // Driver is owed cash, cashier gives them cash 
 
     const generateWhatsAppMessage = () => {
         return encodeURIComponent(`*Shift Report - Maa Fleet* 🚗
@@ -392,9 +397,9 @@ Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
                                 </div>
                             )}
 
-                            <button type="submit" disabled={submitting || !driverId || !carNumber || activePlatformData.length === 0}
+                            <button type="submit" disabled={submitting || !driverId || !carNumber}
                                 className={clsx("w-full py-4 rounded-xl font-black text-sm transition-all transform active:scale-95 flex justify-center items-center gap-2.5 shadow-xl mt-4",
-                                    submitting || !driverId || !carNumber || activePlatformData.length === 0
+                                    submitting || !driverId || !carNumber
                                         ? "bg-white/10 text-white/30 cursor-not-allowed shadow-none"
                                         : "bg-white text-brand-900 hover:bg-brand-50 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)]")}>
                                 {success ? <><Sparkles className="w-5 h-5" /> Synced!</> : submitting ? 'Uploading...' : <><Send className="w-5 h-5" /> Submit & Share Record</>}
