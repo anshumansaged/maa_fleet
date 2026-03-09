@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import DriverForm from './components/DriverForm';
+import DriverForm from './components/DriverForm';
 import AdminPanel from './components/AdminPanel';
-import LandingPage from './components/LandingPage';
 import PinGate from './components/PinGate';
 import { CarFront, Wallet, BarChart3, LogOut } from 'lucide-react';
 import clsx from 'clsx';
@@ -12,18 +12,14 @@ const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '5678';
 function NavLinks() {
   const location = useLocation();
   const path = location.pathname;
-  const isHome = path === '/';
-
-  if (isHome) return null;
-
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       <div className="flex items-center p-0.5 sm:p-1 bg-white/60 backdrop-blur-xl rounded-full border border-white/80 shadow-sm">
         <Link
-          to="/cashier"
+          to="/"
           className={clsx(
             "px-3 sm:px-5 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold rounded-full transition-all duration-300",
-            path === '/cashier'
+            path === '/'
               ? "bg-brand-600 text-white shadow-md shadow-brand-500/25"
               : "text-slate-500 hover:text-brand-600"
           )}
@@ -42,9 +38,12 @@ function NavLinks() {
           Admin
         </Link>
       </div>
-      <Link to="/" className="p-2 sm:p-2.5 rounded-full bg-white/60 backdrop-blur-xl border border-white/80 shadow-sm text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all" title="Logout">
+      <button onClick={() => {
+        sessionStorage.clear();
+        window.location.reload();
+      }} className="p-2 sm:p-2.5 rounded-full bg-white/60 backdrop-blur-xl border border-white/80 shadow-sm text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-all" title="Lock">
         <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-      </Link>
+      </button>
     </div>
   );
 }
@@ -75,8 +74,7 @@ function App() {
 
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 animate-fadeUp">
           <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/cashier" element={
+            <Route path="/" element={
               <PinGate pin={CASHIER_PIN} title="Cashier Login" icon={<Wallet className="w-6 h-6" />}>
                 <DriverForm />
               </PinGate>
