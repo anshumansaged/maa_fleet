@@ -174,11 +174,8 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
                             <div className="flex gap-2">
                                 <select value={driverId} onChange={e => setDriverId(e.target.value)} className="clean-input w-full rounded-2xl px-4 py-3 text-sm appearance-none cursor-pointer" required>
                                     <option value="" disabled>Select driver...</option>
-                                    {drivers.map(d => <option key={d.id} value={d.id}>{d.name} ({(d.salaryPercentage * 100).toFixed(0)}%)</option>)}
+                                    {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                                 </select>
-                                <button type="button" onClick={handleCreateDriver} className="px-4 py-3 bg-white border border-gray-200 text-brand-600 shadow-sm rounded-2xl text-sm font-bold transition-all hover:shadow-md hover:border-brand-300 hover:-translate-y-0.5 whitespace-nowrap active:scale-95">
-                                    + New
-                                </button>
                             </div>
                         </div>
                         <div className="space-y-2">

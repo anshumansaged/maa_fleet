@@ -182,7 +182,7 @@ export default function AdminPanel() {
                         <tbody className="divide-y divide-brand-50 text-sm">
                             {driverStats.map(d => (
                                 <tr key={d.id} className="hover:bg-brand-50/50 transition-colors">
-                                    <td className="px-6 py-4 font-bold text-brand-950 capitalize">{d.name} <span className="text-xs text-slate-400 font-normal">({(d.percentage * 100).toFixed(0)}%)</span></td>
+                                    <td className="px-6 py-4 font-bold text-brand-950 capitalize">{d.name}</td>
                                     <td className="px-4 py-4 text-right tabular-nums text-slate-600">{fmt(d.totalEarnings)}</td>
                                     <td className="px-4 py-4 text-right tabular-nums text-slate-600">{fmt(d.netEarnings)}</td>
                                     <td className="px-4 py-4 text-right tabular-nums text-slate-600">{fmt(d.driverSalary)}</td>
