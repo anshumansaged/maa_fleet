@@ -149,24 +149,24 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
 
             {/* FORM */}
             <div className="xl:col-span-8">
-                <form onSubmit={handleSubmit} className="glass-panel p-8 sm:p-10 space-y-0">
+                <form onSubmit={handleSubmit} className="glass-panel p-5 sm:p-8 md:p-10 space-y-0">
 
                     {/* Header */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 pb-8 border-b border-brand-100">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6 pb-6 sm:pb-8 border-b border-brand-100">
                         <div>
-                            <h2 className="text-2xl font-extrabold text-brand-950 flex items-center gap-3">
-                                <span className="p-3 bg-gradient-to-br from-brand-100 to-pink-100 rounded-2xl">
-                                    <Calculator className="w-6 h-6 text-brand-600" />
+                            <h2 className="text-lg sm:text-2xl font-extrabold text-brand-950 flex items-center gap-2 sm:gap-3">
+                                <span className="p-2 sm:p-3 bg-gradient-to-br from-brand-100 to-pink-100 rounded-xl sm:rounded-2xl">
+                                    <Calculator className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600" />
                                 </span>
                                 New Shift Record
                             </h2>
-                            <p className="text-slate-400 mt-2 text-sm">Select platforms used today, then fill in only what applies.</p>
+                            <p className="text-slate-400 mt-1.5 sm:mt-2 text-xs sm:text-sm">Select platforms used today, then fill in only what applies.</p>
                         </div>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="clean-input rounded-2xl px-5 py-3 text-sm shadow-sm" required />
+                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="clean-input rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3 text-sm shadow-sm w-full sm:w-auto" required />
                     </div>
 
                     {/* Driver & Car */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 py-8 border-b border-brand-50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 py-6 sm:py-8 border-b border-brand-50">
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-brand-400 uppercase tracking-wider flex items-center gap-2">
                                 <User className="w-3.5 h-3.5" /> Driver
@@ -190,8 +190,8 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
                     </div>
 
                     {/* Platform Toggles */}
-                    <div className="py-6 border-b border-brand-50">
-                        <div className="flex items-center gap-2 mb-4">
+                    <div className="py-5 sm:py-6 border-b border-brand-50">
+                        <div className="flex items-center gap-2 mb-3 sm:mb-4">
                             <ToggleLeft className="w-4 h-4 text-brand-400" />
                             <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">Active Platforms Today</span>
                         </div>
@@ -199,7 +199,7 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
                             {ALL_PLATFORMS.map(p => (
                                 <button key={p.id} type="button" onClick={() => togglePlatform(p.id)}
                                     className={clsx(
-                                        "px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 border-2 active:scale-95",
+                                        "px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 border-2 active:scale-95",
                                         activePlatforms.includes(p.id)
                                             ? "bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-500/20"
                                             : "bg-white text-slate-400 border-gray-200 hover:border-brand-300 hover:text-brand-600"
@@ -213,51 +213,88 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
                     {/* Dynamic Data Grid — only active platforms */}
                     {activePlatformData.length > 0 ? (
                         <div className="py-8 space-y-6">
-                            {/* Earnings + Cash in a responsive table-like layout */}
-                            <div className="surface-card p-6 overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="text-xs font-bold text-brand-400 uppercase tracking-wider border-b border-brand-50">
-                                            <th className="text-left pb-3">Platform</th>
-                                            <th className="text-right pb-3 pl-4">Earned (₹)</th>
-                                            <th className="text-right pb-3 pl-4">Cash (₹)</th>
-                                            <th className="text-right pb-3 pl-4">Commission (₹)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-brand-50">
-                                        {activePlatformData.map(p => (
-                                            <tr key={p.id} className="group">
-                                                <td className="py-3 font-bold text-slate-700 group-hover:text-brand-600 transition-colors">{p.label}</td>
-                                                <td className="py-3 pl-4">
-                                                    <input type="number" step="0.01" placeholder="0.00"
-                                                        value={earnings[p.id] || ''} onChange={e => setEarnings({ ...earnings, [p.id]: e.target.value })}
-                                                        className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-emerald-400 focus:!shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" />
-                                                </td>
-                                                <td className="py-3 pl-4">
-                                                    {p.id === 'offline' ? (
-                                                        <div className="relative">
+                            {/* Earnings + Cash — Card-based for mobile, table for desktop */}
+                            <div className="surface-card p-4 sm:p-6">
+                                {/* Desktop Table */}
+                                <div className="hidden sm:block overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="text-xs font-bold text-brand-400 uppercase tracking-wider border-b border-brand-50">
+                                                <th className="text-left pb-3">Platform</th>
+                                                <th className="text-right pb-3 pl-4">Earned (₹)</th>
+                                                <th className="text-right pb-3 pl-4">Cash (₹)</th>
+                                                <th className="text-right pb-3 pl-4">Commission (₹)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-brand-50">
+                                            {activePlatformData.map(p => (
+                                                <tr key={p.id} className="group">
+                                                    <td className="py-3 font-bold text-slate-700 group-hover:text-brand-600 transition-colors">{p.label}</td>
+                                                    <td className="py-3 pl-4">
+                                                        <input type="number" step="0.01" placeholder="0.00"
+                                                            value={earnings[p.id] || ''} onChange={e => setEarnings({ ...earnings, [p.id]: e.target.value })}
+                                                            className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-emerald-400 focus:!shadow-[0_0_0_4px_rgba(52,211,153,0.12)]" />
+                                                    </td>
+                                                    <td className="py-3 pl-4">
+                                                        {p.id === 'offline' ? (
                                                             <input type="number" value={earnings.offline || ''} disabled
                                                                 className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block bg-brand-50/50 text-slate-400 border-dashed cursor-not-allowed" />
-                                                        </div>
+                                                        ) : (
+                                                            <input type="number" step="0.01" placeholder="0.00"
+                                                                value={cash[p.id + 'Cash'] || ''} onChange={e => setCash({ ...cash, [p.id + 'Cash']: e.target.value })}
+                                                                className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-amber-400 focus:!shadow-[0_0_0_4px_rgba(251,191,36,0.12)]" />
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3 pl-4">
+                                                        {p.hasComm ? (
+                                                            <input type="number" step="0.01" placeholder="0.00"
+                                                                value={commissions[p.id + 'Comm'] || ''} onChange={e => setCommissions({ ...commissions, [p.id + 'Comm']: e.target.value })}
+                                                                className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-violet-400 focus:!shadow-[0_0_0_4px_rgba(167,139,250,0.12)]" />
+                                                        ) : (
+                                                            <span className="text-slate-300 text-xs block text-right">—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile Cards */}
+                                <div className="sm:hidden space-y-4">
+                                    {activePlatformData.map(p => (
+                                        <div key={p.id} className="bg-brand-50/30 rounded-2xl p-4 space-y-3">
+                                            <h4 className="font-bold text-brand-700 text-sm">{p.label}</h4>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Earned</label>
+                                                    <input type="number" step="0.01" placeholder="0.00"
+                                                        value={earnings[p.id] || ''} onChange={e => setEarnings({ ...earnings, [p.id]: e.target.value })}
+                                                        className="clean-input w-full rounded-xl px-3 py-2.5 text-sm text-right font-bold focus:!border-emerald-400" />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Cash</label>
+                                                    {p.id === 'offline' ? (
+                                                        <input type="number" value={earnings.offline || ''} disabled
+                                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm text-right font-bold bg-brand-50/50 text-slate-400 border-dashed cursor-not-allowed" />
                                                     ) : (
                                                         <input type="number" step="0.01" placeholder="0.00"
                                                             value={cash[p.id + 'Cash'] || ''} onChange={e => setCash({ ...cash, [p.id + 'Cash']: e.target.value })}
-                                                            className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-amber-400 focus:!shadow-[0_0_0_4px_rgba(251,191,36,0.12)]" />
+                                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm text-right font-bold focus:!border-amber-400" />
                                                     )}
-                                                </td>
-                                                <td className="py-3 pl-4">
-                                                    {p.hasComm ? (
-                                                        <input type="number" step="0.01" placeholder="0.00"
-                                                            value={commissions[p.id + 'Comm'] || ''} onChange={e => setCommissions({ ...commissions, [p.id + 'Comm']: e.target.value })}
-                                                            className="clean-input w-full max-w-[120px] rounded-xl px-3 py-2 text-right font-bold ml-auto block focus:!border-violet-400 focus:!shadow-[0_0_0_4px_rgba(167,139,250,0.12)]" />
-                                                    ) : (
-                                                        <span className="text-slate-300 text-xs block text-right">—</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                </div>
+                                            </div>
+                                            {p.hasComm && (
+                                                <div className="space-y-1">
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Commission</label>
+                                                    <input type="number" step="0.01" placeholder="0.00"
+                                                        value={commissions[p.id + 'Comm'] || ''} onChange={e => setCommissions({ ...commissions, [p.id + 'Comm']: e.target.value })}
+                                                        className="clean-input w-full rounded-xl px-3 py-2.5 text-sm text-right font-bold focus:!border-violet-400" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Expenses */}
@@ -285,9 +322,9 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
                     )}
 
                     {/* Bottom Controls */}
-                    <div className="py-6 border-t border-brand-100 flex justify-end">
+                    <div className="py-5 sm:py-6 border-t border-brand-100 flex justify-end">
                         <button type="submit" disabled={submitting || !driverId || !carNumber || activePlatformData.length === 0}
-                            className={clsx("md:w-64 py-4 rounded-2xl font-bold text-sm transition-all transform active:scale-95 flex justify-center items-center gap-2.5 shadow-xl",
+                            className={clsx("w-full sm:w-64 py-4 rounded-2xl font-bold text-sm transition-all transform active:scale-95 flex justify-center items-center gap-2.5 shadow-xl",
                                 submitting || !driverId || !carNumber || activePlatformData.length === 0
                                     ? "bg-gray-100 text-gray-400 cursor-not-allowed shadow-none"
                                     : "bg-gradient-to-r from-brand-600 to-pink-500 text-white shadow-brand-500/30 hover:-translate-y-1 hover:shadow-2xl")}>
@@ -299,7 +336,7 @@ Driver (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)}
 
             {/* SIDEBAR */}
             <div className="xl:col-span-4">
-                <div className="sticky top-28 space-y-6">
+                <div className="xl:sticky xl:top-28 space-y-6">
                     {/* Hero Number */}
                     <div className="glass-panel p-8 text-center relative overflow-hidden">
                         <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-brand-300/40 to-pink-300/40 rounded-full blur-3xl pointer-events-none"></div>

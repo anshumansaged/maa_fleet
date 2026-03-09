@@ -119,26 +119,26 @@ export default function AdminPanel() {
         <div className="space-y-8 pb-16 animate-fadeUp">
 
             {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
                 <div>
-                    <h1 className="text-2xl font-extrabold text-brand-950 flex items-center gap-3">
-                        <span className="p-3 bg-gradient-to-br from-brand-100 to-pink-100 rounded-2xl">
-                            <BarChart3 className="w-6 h-6 text-brand-600" strokeWidth={2.5} />
+                    <h1 className="text-lg sm:text-2xl font-extrabold text-brand-950 flex items-center gap-2 sm:gap-3">
+                        <span className="p-2 sm:p-3 bg-gradient-to-br from-brand-100 to-pink-100 rounded-xl sm:rounded-2xl">
+                            <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600" strokeWidth={2.5} />
                         </span>
                         Executive Dashboard
                     </h1>
-                    <p className="text-slate-400 mt-2 text-sm">Financial overview, driver profitability, and fleet expenses.</p>
+                    <p className="text-slate-400 mt-1.5 sm:mt-2 text-xs sm:text-sm">Financial overview, driver profitability, and fleet expenses.</p>
                 </div>
-                <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl px-4 py-2 rounded-full border border-white shadow-sm text-sm font-bold text-brand-600">
-                    <Clock className="w-4 h-4" /> {overview?.recordCount || 0} Records
+                <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-white shadow-sm text-xs sm:text-sm font-bold text-brand-600">
+                    <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> {overview?.recordCount || 0} Records
                 </div>
             </div>
 
             {/* Time Range Selector */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {TIME_RANGES.map(t => (
                     <button key={t.key} onClick={() => setRange(t.key)}
-                        className={clsx("px-5 py-2 rounded-full text-sm font-bold transition-all duration-300 border-2 active:scale-95",
+                        className={clsx("px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 border-2 active:scale-95",
                             range === t.key
                                 ? "bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-500/20"
                                 : "bg-white text-slate-400 border-gray-200 hover:border-brand-300 hover:text-brand-600"
@@ -149,7 +149,7 @@ export default function AdminPanel() {
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                 <KpiCard title="Gross Revenue" value={totals.totalEarnings} icon={<TrendingUp className="w-5 h-5" />} color="emerald" />
                 <KpiCard title="Net Profit" value={overview?.overallProfit} icon={<ArrowUpRight className="w-5 h-5" />} color="brand" highlight />
                 <KpiCard title="Cash Collected" value={totals.totalCash} icon={<Wallet className="w-5 h-5" />} color="sky" />
@@ -220,7 +220,7 @@ export default function AdminPanel() {
                 {/* Active Balances */}
                 <div className="p-6 border-b border-brand-50 bg-brand-50/20">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Current Driver Balances</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         {drivers.map(d => (
                             <div key={d.id} className="surface-card p-4 flex justify-between items-center !rounded-2xl">
                                 <div>
@@ -307,7 +307,7 @@ export default function AdminPanel() {
                 {/* Add Expense Form */}
                 {showMiscForm && (
                     <form onSubmit={handleMiscSubmit} className="p-6 bg-brand-50/50 border-b border-brand-100 space-y-4">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-brand-400 uppercase tracking-wider">Category</label>
                                 <select value={miscForm.category} onChange={e => setMiscForm({ ...miscForm, category: e.target.value })}
@@ -462,8 +462,8 @@ export default function AdminPanel() {
 
             {/* Modal for Settle */}
             {showSettleModal && settleDriver && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-                    <form onSubmit={handleSettle} className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl p-8 animate-scaleIn">
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+                    <form onSubmit={handleSettle} className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl p-6 sm:p-8 animate-scaleIn">
                         <div className="text-center mb-6">
                             <div className="mx-auto w-12 h-12 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mb-3">
                                 <Wallet className="w-6 h-6" />
@@ -513,10 +513,10 @@ const kpiColors = {
 function KpiCard({ title, value, icon, color, isWarning, highlight }) {
     const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
     return (
-        <div className={clsx("p-5 surface-card", highlight && "!border-brand-300 ring-2 ring-brand-100")}>
-            <div className={`p-2.5 rounded-xl ${kpiColors[color]} w-fit mb-3`}>{icon}</div>
-            <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">{title}</h3>
-            <p className={clsx("text-2xl font-black tracking-tight tabular-nums mt-1", isWarning ? "text-amber-600" : highlight ? "text-brand-700" : "text-brand-950")}>
+        <div className={clsx("p-3 sm:p-5 surface-card", highlight && "!border-brand-300 ring-2 ring-brand-100")}>
+            <div className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl ${kpiColors[color]} w-fit mb-2 sm:mb-3`}>{icon}</div>
+            <h3 className="text-slate-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider">{title}</h3>
+            <p className={clsx("text-lg sm:text-2xl font-black tracking-tight tabular-nums mt-0.5 sm:mt-1", isWarning ? "text-amber-600" : highlight ? "text-brand-700" : "text-brand-950")}>
                 {fmt(value)}
             </p>
         </div>
