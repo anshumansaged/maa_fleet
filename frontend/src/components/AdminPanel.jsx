@@ -4,7 +4,7 @@ import { Fuel, AlertCircle, TrendingUp, Wallet, CheckCircle2, Clock, BarChart3, 
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
-const API_URL = 'http://localhost:5005/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
 const PREDEFINED_CARS = ['3905', '4030', 'ev2335'];
 
 const TIME_RANGES = [

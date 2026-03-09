@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Calculator, CheckCircle2, User, Wallet, DollarSign, Fuel, Send, Sparkles, TrendingUp, Car, Zap, ToggleLeft } from 'lucide-react';
 import clsx from 'clsx';
 
-const API_URL = 'http://localhost:5005/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
 const PREDEFINED_CARS = ['3905', '4030', 'ev2335'];
 
 const ALL_PLATFORMS = [
