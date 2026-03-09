@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Driver {
+  id               String        @id @default(uuid())
+  name             String
+  phone            String?
+  // User keeps x% (default 0.40 = 40%)
+  salaryPercentage Float         @default(0.40)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  records          DailyRecord[]
+  miscExpenses     MiscExpense[]
+  settlements      Settlement[]
+}
+
+model DailyRecord {
+  id             String   @id @default(uuid())
+  driverId       String
+  driver         Driver   @relation(fields: [driverId], references: [id])
+  carNumber      String?
+  date           DateTime @default(now())
+
+  // --- 1. Earnings ---
+  uber           Float    @default(0)
+  inDrive        Float    @default(0)
+  yatri          Float    @default(0)
+  rapido         Float    @default(0)
+  offline        Float    @default(0)
+
+  // --- 2. Commissions ---
+  uberComm       Float    @default(0)
+  yatriComm      Float    @default(0)
+
+  // --- 5. Cash Collections ---
+  uberCash       Float    @default(0)
+  inDriveCash    Float    @default(0)
+  yatriCash      Float    @default(0)
+  rapidoCash     Float    @default(0)
+  offlineCash    Float    @default(0)
+
+  // --- 6. Expenses ---
+  fuel           Float    @default(0)
+  otherExpenses  Float    @default(0)
+  onlinePayments Float    @default(0)
+
+  // --- Computations ---
+  totalEarnings    Float    @default(0)
+  totalCommission  Float    @default(0)
+  netEarnings      Float    @default(0)
+  driverSalary     Float    @default(0)
+  totalCash        Float    @default(0)
+  totalExpenses    Float    @default(0)
+  cashInHand       Float    @default(0)
+  pendingSalary    Float    @default(0)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Settlement {
+  id          String   @id @default(uuid())
+  driverId    String
+  driver      Driver   @relation(fields: [driverId], references: [id])
+  amount      Float    // Positive = Driver paid Cashier. Negative = Cashier paid Driver.
+  cashierName String
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MiscExpense {
+  id          String   @id @default(uuid())
+  category    String   // "denting_painting", "paperwork", "insurance", "challan", "other"
+  description String?
+  amount      Float
+  carNumber   String?
+  driverId    String?
+  driver      Driver?  @relation(fields: [driverId], references: [id])
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

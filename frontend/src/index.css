@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-200: #c7d2fe;
+  --color-brand-300: #a5b4fc;
+  --color-brand-400: #818cf8;
+  --color-brand-500: #6366f1;
+  /* Rich Indigo — more premium than plain blue */
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-800: #3730a3;
+  --color-brand-900: #312e81;
+  --color-brand-950: #1e1b4b;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #f5f3ff;
+  color: #1e1b4b;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Big vibrant mesh gradient background */
+body::after {
+  content: "";
+  position: fixed;
+  top: -60%;
+  left: -40%;
+  right: -40%;
+  bottom: -60%;
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.25) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(244, 114, 182, 0.22) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(251, 146, 60, 0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 30% 20%, rgba(56, 189, 248, 0.2) 0%, transparent 50%);
+  filter: blur(60px);
+  z-index: -1;
+  pointer-events: none;
+  animation: meshFloat 30s infinite alternate ease-in-out;
+}
+
+@keyframes meshFloat {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+
+  33% {
+    transform: translate(3%, 2%) rotate(2deg) scale(1.05);
+  }
+
+  66% {
+    transform: translate(-2%, -1%) rotate(-3deg) scale(0.98);
+  }
+
+  100% {
+    transform: translate(1%, -2%) rotate(1deg) scale(1.03);
+  }
+}
+
+/* Glass panels — the main card style */
+@utility glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(40px) saturate(1.8);
+  -webkit-backdrop-filter: blur(40px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 20px 60px -15px rgba(0, 0, 0, 0.08),
+    0 4px 25px -5px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  border-radius: 24px;
+}
+
+/* White surface cards with depth */
+@utility surface-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.surface-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 12px 40px -8px rgba(99, 102, 241, 0.12), 0 4px 6px -4px rgba(0, 0, 0, 0.03);
+  transform: translateY(-3px);
+}
+
+/* Modern inputs */
+@utility clean-input {
+  background: #fafafe;
+  border: 1.5px solid #e5e7eb;
+  color: #1e1b4b;
+  font-weight: 600;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.clean-input:focus {
+  background: #ffffff;
+  border-color: #818cf8;
+  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.15), 0 1px 2px rgba(0, 0, 0, 0.05);
+  outline: none;
+}
+
+.clean-input::placeholder {
+  color: #c7d2fe;
+  font-weight: 500;
+}
+
+/* Pretty scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c7d2fe;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #818cf8;
+}
+
+/* Hide arrows */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Smooth page transitions */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fadeUp {
+  animation: fadeUp 0.6s ease-out forwards;
+}
+
+/* Stagger children animation */
+.stagger-children>* {
+  opacity: 0;
+  animation: fadeUp 0.5s ease-out forwards;
+}
+
+.stagger-children>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger-children>*:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger-children>*:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger-children>*:nth-child(4) {
+  animation-delay: 0.2s;
+}
