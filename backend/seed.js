@@ -88,7 +88,7 @@ async function main() {
                         uberCash, inDriveCash, offlineCash,
                         fuel, otherExpenses, onlinePayments,
                         totalEarnings, totalCommission, netEarnings, driverSalary,
-                        totalCash, totalExpenses, cashInHand, driverSalaryPaid, pendingSalary
+                        totalCash, totalExpenses, cashInHand, pendingSalary
                     }
                 });
             }
