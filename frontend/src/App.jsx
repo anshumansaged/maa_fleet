@@ -73,11 +73,7 @@ function App() {
 
         <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 animate-fadeUp">
           <Routes>
-            <Route path="/" element={
-              <PinGate pin={CASHIER_PIN} title="Cashier Login" icon={<Wallet className="w-6 h-6" />}>
-                <DriverForm />
-              </PinGate>
-            } />
+            <Route path="/" element={<DriverForm />} />
             <Route path="/admin" element={
               <PinGate pin={ADMIN_PIN} title="Admin Login" icon={<BarChart3 className="w-6 h-6" />}>
                 <AdminPanel />
