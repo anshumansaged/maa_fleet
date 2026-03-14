@@ -12,6 +12,8 @@ const ALL_PLATFORMS = [
     { id: 'offline', label: 'Offline', hasComm: false },
 ];
 
+const PREDEFINED_CARS = ['3905', '4030', 'ev2335'];
+
 export default function DriverForm() {
     const [drivers, setDrivers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -36,6 +38,7 @@ export default function DriverForm() {
     // Advanced Tracking
     const [fuelEntries, setFuelEntries] = useState([{ id: Date.now(), amount: '', type: 'CNG' }]);
     const [expenses, setExpenses] = useState({ otherExpenses: '', onlinePayments: '' });
+    const [yatriTrips, setYatriTrips] = useState('');
 
     // Payment Logic
     const [cashToCashier, setCashToCashier] = useState('');
