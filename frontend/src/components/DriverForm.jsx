@@ -480,9 +480,9 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                                         <div className="space-y-1">
                                             <label className="text-[10px] font-bold text-slate-400 uppercase">Earned</label>
-                                            <input type="number" step="0.01" placeholder="0.00"
-                                                value={earnings[p.id] || ''} onChange={e => { setEarnings({ ...earnings, [p.id]: e.target.value }); setTouched({ ...touched, earnings: true }); }}
-                                                className={clsx("clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-brand-400", errors[`earn_${p.id}`] && "!border-rose-400")} />
+                                            <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
+                                                value={earnings[p.id] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setEarnings({ ...earnings, [p.id]: val }); setTouched({ ...touched, earnings: true }); }}
+                                                className={clsx("clean-input w-full rounded-xl px-3 py-3 text-sm font-bold focus:!border-brand-400", errors[`earn_${p.id}`] && "!border-rose-400")} />
                                             {errors[`earn_${p.id}`] && <p className="text-rose-500 text-[10px] font-bold">{errors[`earn_${p.id}`]}</p>}
                                             {/* Feature 3: Quick presets for offline */}
                                             {p.id === 'offline' && (
@@ -504,20 +504,20 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                                 Cash Received {['yatri', 'rapido'].includes(p.id) && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 rounded">Auto</span>}
                                                 {p.id === 'offline' && <span className="text-[8px] bg-amber-100 text-amber-700 px-1.5 rounded">Monthly OK</span>}
                                             </label>
-                                            <input type="number" step="0.01" placeholder={p.id === 'offline' ? '0 if monthly' : '0.00'}
+                                            <input type="number" min="0" step="0.01" inputMode="decimal" placeholder={p.id === 'offline' ? '0 if monthly' : '0.00'}
                                                 value={['yatri', 'rapido'].includes(p.id) ? (earnings[p.id] || '') : (cash[p.id + 'Cash'] || '')}
-                                                onChange={e => !['yatri', 'rapido'].includes(p.id) && setCash({ ...cash, [p.id + 'Cash']: e.target.value })}
+                                                onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; !['yatri', 'rapido'].includes(p.id) && setCash({ ...cash, [p.id + 'Cash']: val }); }}
                                                 disabled={['yatri', 'rapido'].includes(p.id)}
-                                                className={clsx("clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold",
+                                                className={clsx("clean-input w-full rounded-xl px-3 py-3 text-sm font-bold",
                                                     ['yatri', 'rapido'].includes(p.id) ? "bg-emerald-50 text-emerald-700 border-dashed" : "focus:!border-emerald-400")} />
                                         </div>
 
                                         {p.hasComm && (
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase">Commission</label>
-                                                <input type="number" step="0.01" placeholder="0.00"
-                                                    value={commissions[p.id + 'Comm'] || ''} onChange={e => setCommissions({ ...commissions, [p.id + 'Comm']: e.target.value })}
-                                                    className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-violet-400" />
+                                                <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
+                                                    value={commissions[p.id + 'Comm'] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setCommissions({ ...commissions, [p.id + 'Comm']: val }); }}
+                                                    className="clean-input w-full rounded-xl px-3 py-3 text-sm font-bold focus:!border-violet-400" />
                                             </div>
                                         )}
                                     </div>
@@ -549,8 +549,9 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                                 <option value="Petrol">Petrol</option>
                                                 <option value="EV Charge">EV ⚡</option>
                                             </select>
-                                            <input type="number" placeholder="Amount (₹)" value={f.amount} onChange={e => updateFuelEntry(f.id, 'amount', e.target.value)}
-                                                className={clsx("clean-input w-full rounded-xl px-3 py-2 text-sm font-bold focus:!border-rose-400", errors[`fuel_${f.id}`] && "!border-rose-400")} />
+                                            <input type="number" min="0" inputMode="decimal" placeholder="Amount (₹)" value={f.amount}
+                                                onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; updateFuelEntry(f.id, 'amount', val); }}
+                                                className={clsx("clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-rose-400", errors[`fuel_${f.id}`] && "!border-rose-400")} />
                                             {fuelEntries.length > 1 && (
                                                 <button type="button" onClick={() => removeFuelEntry(f.id)} className="p-2 text-slate-300 hover:text-rose-500 transition hover:bg-rose-50 rounded-xl">
                                                     <Trash2 className="w-4 h-4" />
@@ -584,15 +585,15 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                 <div className="bg-brand-50/30 border border-brand-100 rounded-2xl p-4 sm:p-5 space-y-4">
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-slate-500">Other Miscellaneous Expenses</label>
-                                        <input type="number" step="0.01" placeholder="0.00"
-                                            value={expenses.otherExpenses} onChange={e => setExpenses({ ...expenses, otherExpenses: e.target.value })}
-                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-rose-400" />
+                                        <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
+                                            value={expenses.otherExpenses} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, otherExpenses: val }); }}
+                                            className="clean-input w-full rounded-xl px-3 py-3 text-sm font-bold focus:!border-rose-400" />
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-slate-500">Online Payments (Paid via UPI)</label>
-                                        <input type="number" step="0.01" placeholder="0.00"
-                                            value={expenses.onlinePayments} onChange={e => setExpenses({ ...expenses, onlinePayments: e.target.value })}
-                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-amber-400" />
+                                        <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
+                                            value={expenses.onlinePayments} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, onlinePayments: val }); }}
+                                            className="clean-input w-full rounded-xl px-3 py-3 text-sm font-bold focus:!border-amber-400" />
                                     </div>
                                 </div>
                             </div>
