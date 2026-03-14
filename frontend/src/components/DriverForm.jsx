@@ -185,14 +185,11 @@ export default function DriverForm() {
     let cashInHand = totalCash - totalExpenses - onlinePayments - driverSalary;
     let pendingSalary = 0;
 
-    const remainingCash = cashInHand >= 0
-        ? cashInHand - v(cashToCashier)
-        : cashInHand + v(cashToCashier);
-
-    const todayDifference = cashInHand - v(cashToCashier);
+    // Align with backend: POSITIVE = Fleet Owes Driver
+    const todayDifference = v(cashToCashier) - cashInHand;
     const newTotalBalance = previousBalance + todayDifference;
 
-    const balanceLabel = (bal) => bal > 0 ? 'Driver Owes Fleet' : bal < 0 ? 'Fleet Owes Driver' : 'Settled';
+    const balanceLabel = (bal) => bal > 0 ? 'Fleet Owes Driver' : bal < 0 ? 'Driver Owes Fleet' : 'Settled';
 
     // Feature 8: Validation
     const validate = () => {
@@ -660,14 +657,14 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
 
                             {v(cashToCashier) > 0 && (
                                 <div className={clsx("p-4 rounded-xl text-center text-sm font-bold border",
-                                    remainingCash > 0 ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
-                                        remainingCash < 0 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
+                                    todayDifference < 0 ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
+                                        todayDifference > 0 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
                                             "bg-white/10 text-brand-200 border-white/20")}>
-                                    {remainingCash > 0
-                                        ? `Driver still has ₹${remainingCash.toFixed(2)} in hand (Owes Fleet)`
-                                        : remainingCash < 0
-                                            ? `Driver gave ₹${Math.abs(remainingCash).toFixed(2)} extra (Fleet Owes)`
-                                            : "Fully Settled!"}
+                                    {todayDifference < 0
+                                        ? `Driver still owes ₹${Math.abs(todayDifference).toFixed(2)} for today`
+                                        : todayDifference > 0
+                                            ? `Driver gave ₹${Math.abs(todayDifference).toFixed(2)} extra (Fleet Owes)`
+                                            : "Perfectly Settled Today!"}
                                 </div>
                             )}
 
@@ -680,27 +677,27 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                 <div className="grid grid-cols-3 gap-3 text-center">
                                     <div className="bg-white/5 rounded-xl p-3">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Previous</p>
-                                        <p className={clsx("text-lg font-black tabular-nums", previousBalance > 0 ? "text-amber-300" : previousBalance < 0 ? "text-emerald-300" : "text-white/50")}>
+                                        <p className={clsx("text-lg font-black tabular-nums", previousBalance < 0 ? "text-amber-300" : previousBalance > 0 ? "text-emerald-300" : "text-white/50")}>
                                             ₹{Math.abs(previousBalance).toFixed(0)}
                                         </p>
                                     </div>
                                     <div className="bg-white/5 rounded-xl p-3">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Today</p>
-                                        <p className={clsx("text-lg font-black tabular-nums", todayDifference > 0 ? "text-amber-300" : todayDifference < 0 ? "text-emerald-300" : "text-white/50")}>
+                                        <p className={clsx("text-lg font-black tabular-nums", todayDifference < 0 ? "text-amber-300" : todayDifference > 0 ? "text-emerald-300" : "text-white/50")}>
                                             {todayDifference >= 0 ? '+' : '−'}₹{Math.abs(todayDifference).toFixed(0)}
                                         </p>
                                     </div>
-                                    <div className={clsx("rounded-xl p-3", newTotalBalance > 0 ? "bg-amber-500/20" : newTotalBalance < 0 ? "bg-emerald-500/20" : "bg-white/10")}>
+                                    <div className={clsx("rounded-xl p-3", newTotalBalance < 0 ? "bg-amber-500/20" : newTotalBalance > 0 ? "bg-emerald-500/20" : "bg-white/10")}>
                                         <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">New Total</p>
-                                        <p className={clsx("text-lg font-black tabular-nums", newTotalBalance > 0 ? "text-amber-300" : newTotalBalance < 0 ? "text-emerald-300" : "text-white")}>
+                                        <p className={clsx("text-lg font-black tabular-nums", newTotalBalance < 0 ? "text-amber-300" : newTotalBalance > 0 ? "text-emerald-300" : "text-white")}>
                                             ₹{Math.abs(newTotalBalance).toFixed(0)}
                                         </p>
                                     </div>
                                 </div>
                                 <p className={clsx("text-center text-xs font-bold mt-2",
-                                    newTotalBalance > 0 ? "text-amber-400" : newTotalBalance < 0 ? "text-emerald-400" : "text-white/50")}>
-                                    {newTotalBalance > 0 ? `Driver owes Fleet ₹${Math.abs(newTotalBalance).toFixed(0)}` :
-                                        newTotalBalance < 0 ? `Fleet owes Driver ₹${Math.abs(newTotalBalance).toFixed(0)}` : 'Fully Settled ✓'}
+                                    newTotalBalance < 0 ? "text-amber-400" : newTotalBalance > 0 ? "text-emerald-400" : "text-white/50")}>
+                                    {newTotalBalance < 0 ? `Driver owes Fleet ₹${Math.abs(newTotalBalance).toFixed(0)}` :
+                                        newTotalBalance > 0 ? `Fleet owes Driver ₹${Math.abs(newTotalBalance).toFixed(0)}` : 'Fully Settled ✓'}
                                 </p>
                             </div>
 
