@@ -1,14 +1,14 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import DriverForm from './components/DriverForm';
 import AdminPanel from './components/AdminPanel';
 import PinGate from './components/PinGate';
-import { CarFront, Wallet, BarChart3, LogOut } from 'lucide-react';
+import { CarFront, BarChart3, LogOut, Moon, Sun } from 'lucide-react';
 import clsx from 'clsx';
 
-const CASHIER_PIN = import.meta.env.VITE_CASHIER_PIN || '1234';
 const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '5678';
 
-function NavLinks() {
+function NavLinks({ darkMode, setDarkMode }) {
   const location = useLocation();
   const path = location.pathname;
   return (
@@ -37,6 +37,11 @@ function NavLinks() {
           Admin
         </Link>
       </div>
+      {/* Dark Mode Toggle */}
+      <button onClick={() => setDarkMode(!darkMode)}
+        className="p-2 sm:p-2.5 rounded-full bg-white/60 backdrop-blur-xl border border-white/80 shadow-sm text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-all active:scale-90" title="Toggle Dark Mode">
+        {darkMode ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+      </button>
       <button onClick={() => {
         sessionStorage.clear();
         window.location.reload();
@@ -48,6 +53,15 @@ function NavLinks() {
 }
 
 function App() {
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('maafleet_dark') === 'true';
+  });
+
+  useEffect(() => {
+    document.body.classList.toggle('dark', darkMode);
+    localStorage.setItem('maafleet_dark', darkMode);
+  }, [darkMode]);
+
   return (
     <BrowserRouter>
       <div className="min-h-screen font-sans selection:bg-brand-200 selection:text-brand-900 pb-20 relative">
@@ -64,7 +78,7 @@ function App() {
                   Maa<span className="text-brand-500">Fleet</span>
                 </h1>
               </Link>
-              <NavLinks />
+              <NavLinks darkMode={darkMode} setDarkMode={setDarkMode} />
             </div>
           </div>
         </nav>

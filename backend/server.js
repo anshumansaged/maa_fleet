@@ -385,6 +385,123 @@ app.get('/api/analytics', async (req, res) => {
   }
 });
 
+// ======================================================================
+// DUPLICATE CHECK — Check if record exists for driver on date
+// ======================================================================
+app.get('/api/records/check-duplicate', async (req, res) => {
+  try {
+    const { driverId, date } = req.query;
+    if (!driverId || !date) return res.json({ exists: false });
+
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const existing = await prisma.dailyRecord.findFirst({
+      where: {
+        driverId,
+        date: { gte: dayStart, lte: dayEnd }
+      },
+      select: { id: true, totalEarnings: true, cashToCashier: true, createdAt: true }
+    });
+
+    res.json({ exists: !!existing, record: existing });
+  } catch (error) {
+    console.error('Error checking duplicate:', error);
+    res.status(500).json({ error: 'Failed to check duplicate' });
+  }
+});
+
+// ======================================================================
+// DAILY SUMMARY — Aggregate all drivers for a given date
+// ======================================================================
+app.get('/api/daily-summary', async (req, res) => {
+  try {
+    const date = req.query.date || new Date().toISOString().split('T')[0];
+    const dayStart = new Date(date);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(date);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const records = await prisma.dailyRecord.findMany({
+      where: { date: { gte: dayStart, lte: dayEnd } },
+      include: { driver: true }
+    });
+
+    const drivers = await prisma.driver.findMany({
+      include: { records: true, settlements: true }
+    });
+
+    // Compute balance per driver
+    const balanceMap = {};
+    drivers.forEach(d => {
+      let balance = 0;
+      d.records.forEach(r => {
+        balance += r.pendingSalary;
+        balance -= (r.cashInHand - r.cashToCashier);
+      });
+      d.settlements.forEach(s => { balance += s.amount; });
+      balanceMap[d.id] = { name: d.name, balance };
+    });
+
+    const totalEarnings = records.reduce((s, r) => s + r.totalEarnings, 0);
+    const totalCash = records.reduce((s, r) => s + r.totalCash, 0);
+    const totalCashCollected = records.reduce((s, r) => s + r.cashToCashier, 0);
+    const totalFuel = records.reduce((s, r) => s + r.fuel, 0);
+    const totalSalary = records.reduce((s, r) => s + r.driverSalary, 0);
+
+    res.json({
+      date,
+      recordCount: records.length,
+      totalEarnings,
+      totalCash,
+      totalCashCollected,
+      totalFuel,
+      totalSalary,
+      driverRecords: records.map(r => ({
+        driverName: r.driver?.name,
+        totalEarnings: r.totalEarnings,
+        cashToCashier: r.cashToCashier,
+        driverSalary: r.driverSalary,
+        fuel: r.fuel,
+        balance: balanceMap[r.driverId]?.balance || 0
+      })),
+      allBalances: Object.entries(balanceMap)
+        .filter(([, v]) => v.balance !== 0)
+        .map(([id, v]) => ({ id, name: v.name, balance: v.balance }))
+    });
+  } catch (error) {
+    console.error('Error fetching daily summary:', error);
+    res.status(500).json({ error: 'Failed to fetch daily summary' });
+  }
+});
+
+// ======================================================================
+// QUICK SETTLE — Cashier-side settlement
+// ======================================================================
+app.post('/api/quick-settle', async (req, res) => {
+  try {
+    const { driverId, amount, direction } = req.body;
+    // direction: 'driver_pays' (driver gives cash to fleet) or 'fleet_pays' (fleet gives cash to driver)
+    const finalAmount = direction === 'driver_pays' ? Math.abs(parseFloat(amount)) : -Math.abs(parseFloat(amount));
+
+    const settlement = await prisma.settlement.create({
+      data: {
+        driverId,
+        amount: finalAmount,
+        cashierName: 'Cashier',
+        description: `Quick settle from cashier view`,
+        date: new Date(),
+      }
+    });
+    res.status(201).json(settlement);
+  } catch (error) {
+    console.error('Error quick settling:', error);
+    res.status(500).json({ error: 'Failed to settle' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
