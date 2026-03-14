@@ -36,7 +36,7 @@ export default function DriverForm() {
     const [cash, setCash] = useState({});
 
     // Advanced Tracking
-    const [fuelEntries, setFuelEntries] = useState([{ id: Date.now(), amount: '', type: 'CNG' }]);
+    const [fuelEntries, setFuelEntries] = useState([{ id: Date.now(), amount: '', type: 'CNG', paidBy: 'driver' }]);
     const [expenses, setExpenses] = useState({ otherExpenses: '', onlinePayments: '' });
     const [yatriTrips, setYatriTrips] = useState('');
 
@@ -113,7 +113,7 @@ export default function DriverForm() {
         );
     };
 
-    const addFuelEntry = () => setFuelEntries([...fuelEntries, { id: Date.now(), amount: '', type: 'CNG' }]);
+    const addFuelEntry = () => setFuelEntries([...fuelEntries, { id: Date.now(), amount: '', type: 'CNG', paidBy: 'driver' }]);
     const removeFuelEntry = (id) => setFuelEntries(fuelEntries.filter(f => f.id !== id));
     const updateFuelEntry = (id, field, value) => {
         setFuelEntries(fuelEntries.map(f => f.id === id ? { ...f, [field]: value } : f));
@@ -140,12 +140,15 @@ export default function DriverForm() {
     const netEarnings = totalEarnings - totalCommission;
 
     const getPlatformCash = (p) => {
-        if (['offline', 'yatri', 'rapido'].includes(p)) return v(earnings[p]);
-        return v(cash[p + 'Cash']);
+        if (['yatri', 'rapido'].includes(p)) return v(earnings[p]); // auto-cash
+        return v(cash[p + 'Cash']); // manual: uber, inDrive, offline
     };
     const totalCash = activePlatforms.reduce((s, p) => s + getPlatformCash(p), 0);
 
-    const totalFuel = fuelEntries.reduce((s, f) => s + v(f.amount), 0);
+    const totalFuelAll = fuelEntries.reduce((s, f) => s + v(f.amount), 0);
+    const driverPaidFuel = fuelEntries.filter(f => f.paidBy === 'driver').reduce((s, f) => s + v(f.amount), 0);
+    const fleetPaidFuel = fuelEntries.filter(f => f.paidBy === 'fleet').reduce((s, f) => s + v(f.amount), 0);
+    const totalFuel = driverPaidFuel; // Only driver-paid fuel affects cash calculation
     const totalExpenses = totalFuel + v(expenses.otherExpenses);
     const onlinePayments = v(expenses.onlinePayments);
 
@@ -196,8 +199,9 @@ ${activePlatforms.map(p => {
 *Gross: ₹${totalEarnings}*
 
 *⛽ Deductions*
-Comm: ₹${totalCommission} | Fuel: ₹${totalFuel}
-Other: ₹${v(expenses.otherExpenses)} | Online Pay: ₹${onlinePayments}
+Fuel (Driver): ₹${driverPaidFuel}${fleetPaidFuel > 0 ? ` | Fuel (Fleet): ₹${fleetPaidFuel}` : ''}
+Comm: ₹${totalCommission} | Other: ₹${v(expenses.otherExpenses)}
+Online Pay: ₹${onlinePayments}
 
 *📊 Summary*
 Salary (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)} (Paid directly from cash)
@@ -262,13 +266,13 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                 driverId, carNumber, date,
                 startKm: tStartKm, endKm: tEndKm, totalKm, yatriTrips: parseInt(yatriTrips) || 0,
                 cashToCashier: v(cashToCashier),
-                fuelDetails: fuelEntries.filter(f => v(f.amount) > 0).map(f => ({ amount: v(f.amount), type: f.type })),
+                fuelDetails: fuelEntries.filter(f => v(f.amount) > 0).map(f => ({ amount: v(f.amount), type: f.type, paidBy: f.paidBy })),
                 driverSalaryPaid: true,
                 uber: v(earnings.uber), inDrive: v(earnings.inDrive), yatri: v(earnings.yatri), rapido: v(earnings.rapido), offline: v(earnings.offline),
                 uberComm: v(commissions.uberComm), yatriComm: v(commissions.yatriComm),
                 uberCash: v(cash.uberCash), inDriveCash: v(cash.inDriveCash),
                 yatriCash: getPlatformCash('yatri'), rapidoCash: getPlatformCash('rapido'), offlineCash: getPlatformCash('offline'),
-                fuel: totalFuel, otherExpenses: v(expenses.otherExpenses), onlinePayments: v(expenses.onlinePayments)
+                fuel: totalFuelAll, otherExpenses: v(expenses.otherExpenses), onlinePayments: v(expenses.onlinePayments)
             };
 
             await axios.post(`${API_URL}/records`, payload);
@@ -279,7 +283,7 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
             // Reset
             setEarnings({}); setCommissions({}); setCash({});
             setCashToCashier(''); setEndKm('');
-            setFuelEntries([{ id: Date.now(), amount: '', type: 'CNG' }]);
+            setFuelEntries([{ id: Date.now(), amount: '', type: 'CNG', paidBy: 'driver' }]);
             setExpenses({ otherExpenses: '', onlinePayments: '' });
             setDuplicateWarning(null); setErrors({}); setTouched({});
 
@@ -437,14 +441,15 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
 
                                         <div className="space-y-1">
                                             <label className="text-[10px] items-center flex justify-between font-bold text-slate-400 uppercase">
-                                                Cash Received {['yatri', 'rapido', 'offline'].includes(p.id) && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 rounded">Auto</span>}
+                                                Cash Received {['yatri', 'rapido'].includes(p.id) && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 rounded">Auto</span>}
+                                                {p.id === 'offline' && <span className="text-[8px] bg-amber-100 text-amber-700 px-1.5 rounded">Monthly OK</span>}
                                             </label>
-                                            <input type="number" step="0.01" placeholder="0.00"
-                                                value={['yatri', 'rapido', 'offline'].includes(p.id) ? (earnings[p.id] || '') : (cash[p.id + 'Cash'] || '')}
-                                                onChange={e => !['yatri', 'rapido', 'offline'].includes(p.id) && setCash({ ...cash, [p.id + 'Cash']: e.target.value })}
-                                                disabled={['yatri', 'rapido', 'offline'].includes(p.id)}
+                                            <input type="number" step="0.01" placeholder={p.id === 'offline' ? '0 if monthly' : '0.00'}
+                                                value={['yatri', 'rapido'].includes(p.id) ? (earnings[p.id] || '') : (cash[p.id + 'Cash'] || '')}
+                                                onChange={e => !['yatri', 'rapido'].includes(p.id) && setCash({ ...cash, [p.id + 'Cash']: e.target.value })}
+                                                disabled={['yatri', 'rapido'].includes(p.id)}
                                                 className={clsx("clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold",
-                                                    ['yatri', 'rapido', 'offline'].includes(p.id) ? "bg-emerald-50 text-emerald-700 border-dashed" : "focus:!border-emerald-400")} />
+                                                    ['yatri', 'rapido'].includes(p.id) ? "bg-emerald-50 text-emerald-700 border-dashed" : "focus:!border-emerald-400")} />
                                         </div>
 
                                         {p.hasComm && (
@@ -477,21 +482,42 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                     </button>
                                 </div>
                                 {fuelEntries.map((f) => (
-                                    <div key={f.id} className="flex gap-2 items-center">
-                                        <select value={f.type} onChange={e => updateFuelEntry(f.id, 'type', e.target.value)} className="clean-input w-1/3 rounded-xl px-3 py-2 text-sm font-bold bg-white text-slate-600">
-                                            <option value="CNG">CNG</option>
-                                            <option value="Petrol">Petrol</option>
-                                        </select>
-                                        <input type="number" placeholder="Amount (₹)" value={f.amount} onChange={e => updateFuelEntry(f.id, 'amount', e.target.value)}
-                                            className={clsx("clean-input w-full rounded-xl px-3 py-2 text-sm font-bold focus:!border-rose-400", errors[`fuel_${f.id}`] && "!border-rose-400")} />
-                                        {fuelEntries.length > 1 && (
-                                            <button type="button" onClick={() => removeFuelEntry(f.id)} className="p-2 text-slate-300 hover:text-rose-500 transition hover:bg-rose-50 rounded-xl">
-                                                <Trash2 className="w-4 h-4" />
+                                    <div key={f.id} className="space-y-2">
+                                        <div className="flex gap-2 items-center">
+                                            <select value={f.type} onChange={e => updateFuelEntry(f.id, 'type', e.target.value)} className="clean-input w-1/3 rounded-xl px-3 py-2 text-sm font-bold bg-white text-slate-600">
+                                                <option value="CNG">CNG</option>
+                                                <option value="Petrol">Petrol</option>
+                                                <option value="EV Charge">EV ⚡</option>
+                                            </select>
+                                            <input type="number" placeholder="Amount (₹)" value={f.amount} onChange={e => updateFuelEntry(f.id, 'amount', e.target.value)}
+                                                className={clsx("clean-input w-full rounded-xl px-3 py-2 text-sm font-bold focus:!border-rose-400", errors[`fuel_${f.id}`] && "!border-rose-400")} />
+                                            {fuelEntries.length > 1 && (
+                                                <button type="button" onClick={() => removeFuelEntry(f.id)} className="p-2 text-slate-300 hover:text-rose-500 transition hover:bg-rose-50 rounded-xl">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                        {/* Paid By Toggle */}
+                                        <div className="flex items-center gap-1.5 ml-1">
+                                            <span className="text-[10px] font-bold text-slate-400">Paid by:</span>
+                                            <button type="button" onClick={() => updateFuelEntry(f.id, 'paidBy', 'driver')}
+                                                className={clsx("px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border",
+                                                    f.paidBy === 'driver' ? "bg-brand-600 text-white border-brand-600" : "bg-white text-slate-400 border-slate-200 hover:border-brand-300")}>
+                                                Driver
                                             </button>
-                                        )}
+                                            <button type="button" onClick={() => updateFuelEntry(f.id, 'paidBy', 'fleet')}
+                                                className={clsx("px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border",
+                                                    f.paidBy === 'fleet' ? "bg-pink-500 text-white border-pink-500" : "bg-white text-slate-400 border-slate-200 hover:border-pink-300")}>
+                                                Fleet (You)
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
-                                <div className="text-right text-xs font-extrabold text-brand-600 mt-2">Total Fuel: ₹{totalFuel}</div>
+                                <div className="text-right text-xs font-extrabold mt-2 space-y-0.5">
+                                    <p className="text-brand-600">Driver Paid: ₹{driverPaidFuel}</p>
+                                    {fleetPaidFuel > 0 && <p className="text-pink-500">Fleet Paid: ₹{fleetPaidFuel} <span className="text-[10px] text-slate-400">(not from driver cash)</span></p>}
+                                    <p className="text-slate-500">Total Fuel: ₹{totalFuelAll}</p>
+                                </div>
                             </div>
 
                             <div className="space-y-4">
@@ -676,7 +702,7 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                 <div className="surface-card p-3 text-center !rounded-xl">
                                     <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Fuel / KM</p>
                                     <p className="text-lg font-black text-rose-600 tabular-nums">
-                                        {totalKm > 0 ? `₹${(totalFuel / totalKm).toFixed(1)}` : '—'}
+                                        {totalKm > 0 ? `₹${(totalFuelAll / totalKm).toFixed(1)}` : '—'}
                                     </p>
                                 </div>
                                 <div className="surface-card p-3 text-center !rounded-xl">
@@ -699,6 +725,8 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                         driverSalary={driverSalary}
                         totalCash={totalCash}
                         totalFuel={totalFuel}
+                        driverPaidFuel={driverPaidFuel}
+                        fleetPaidFuel={fleetPaidFuel}
                         totalExpenses={totalExpenses}
                         onlinePayments={onlinePayments}
                         cashInHand={cashInHand}
@@ -908,7 +936,7 @@ function MiniKpi({ label, value, negative }) {
     );
 }
 
-function ExplainerCard({ selectedDriver, totalEarnings, totalCommission, netEarnings, driverPercentage, driverSalary, totalCash, totalFuel, totalExpenses, onlinePayments, cashInHand, cashToCashier, previousBalance, newTotalBalance, balanceLabel }) {
+function ExplainerCard({ selectedDriver, totalEarnings, totalCommission, netEarnings, driverPercentage, driverSalary, totalCash, totalFuel, driverPaidFuel, fleetPaidFuel, totalExpenses, onlinePayments, cashInHand, cashToCashier, previousBalance, newTotalBalance, balanceLabel }) {
     const [open, setOpen] = useState(false);
     const driverName = selectedDriver?.name || 'Driver';
     const pct = (driverPercentage * 100).toFixed(0);
@@ -936,10 +964,10 @@ function ExplainerCard({ selectedDriver, totalEarnings, totalCommission, netEarn
             title: 'Cash Collected',
             text: `${driverName} received ₹${totalCash.toFixed(0)} in cash from passengers today.`
         },
-        (totalFuel > 0 || totalExpenses > 0) && {
+        (totalFuel > 0 || totalExpenses > 0 || fleetPaidFuel > 0) && {
             emoji: '⛽',
             title: 'Expenses',
-            text: `Fuel: ₹${totalFuel.toFixed(0)}${totalExpenses > totalFuel ? ` + Other: ₹${(totalExpenses - totalFuel).toFixed(0)}` : ''} = Total ₹${totalExpenses.toFixed(0)} was spent. This is deducted from cash.`
+            text: `Driver paid fuel: ₹${driverPaidFuel.toFixed(0)}${fleetPaidFuel > 0 ? `. Fleet (you) paid: ₹${fleetPaidFuel.toFixed(0)} — this does NOT reduce driver's cash` : ''}${totalExpenses > totalFuel ? `. Other expenses: ₹${(totalExpenses - totalFuel).toFixed(0)}` : ''}. Total deducted from driver's cash: ₹${totalExpenses.toFixed(0)}.`
         },
         onlinePayments > 0 && {
             emoji: '📱',
