@@ -230,15 +230,6 @@ ${activePlatforms.map(p => {
 Fuel (Driver): ₹${driverPaidFuel}${fleetPaidFuel > 0 ? ` | Fuel (Fleet): ₹${fleetPaidFuel}` : ''}
 Comm: ₹${totalCommission} | Other: ₹${v(expenses.otherExpenses)}
 Online Pay: ₹${onlinePayments}
-
-*📊 Summary*
-Salary (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(2)} (Paid directly from cash)
-Cash To Cashier: ₹${v(cashToCashier).toFixed(2)}
-
-*💳 Running Balance*
-Previous: ₹${Math.abs(previousBalance).toFixed(0)} (${balanceLabel(previousBalance)})
-Today: ${todayDifference >= 0 ? '+' : ''}₹${todayDifference.toFixed(0)}
-*New Balance: ₹${Math.abs(newTotalBalance).toFixed(0)} (${balanceLabel(newTotalBalance)})*
 ━━━━━━━━━━━━━━━━`);
     };
 

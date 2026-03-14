@@ -104,6 +104,16 @@ export default function AdminPanel() {
         finally { setMiscSubmitting(false); }
     };
 
+    const handleDeleteRecord = async (id) => {
+        if (!window.confirm("Are you sure you want to delete this record? This action cannot be undone and will recalculate balances.")) return;
+        try {
+            await axios.delete(`${API_URL}/records/${id}`);
+            fetchAll();
+        } catch (err) {
+            alert("Failed to delete record: " + (err.response?.data?.error || err.message));
+        }
+    };
+
     const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
 
     if (loading && !overview) return (
@@ -555,6 +565,7 @@ export default function AdminPanel() {
                                 <th className="px-6 py-4 text-right">Gross</th>
                                 <th className="px-6 py-4 text-center">Salary Log</th>
                                 <th className="px-6 py-4 text-right">Physical Cash Out</th>
+                                <th className="px-6 py-4 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-brand-50 text-sm">
@@ -572,10 +583,15 @@ export default function AdminPanel() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4 text-right font-black text-brand-950 text-base tabular-nums">{fmt(r.cashInHand)}</td>
+                                    <td className="px-6 py-4 text-center">
+                                        <button onClick={() => handleDeleteRecord(r.id)} className="p-2 text-slate-300 hover:text-rose-600 transition hover:bg-rose-50 rounded-xl" title="Delete Record">
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </td>
                                 </tr>
                             ))}
                             {records.length === 0 && (
-                                <tr><td colSpan="6" className="px-6 py-16 text-center text-slate-400">No records for this period.</td></tr>
+                                <tr><td colSpan="7" className="px-6 py-16 text-center text-slate-400">No records for this period.</td></tr>
                             )}
                         </tbody>
                     </table>

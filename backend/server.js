@@ -172,6 +172,17 @@ app.get('/api/records', async (req, res) => {
   }
 });
 
+app.delete('/api/records/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.dailyRecord.delete({ where: { id } });
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting record:", error);
+    res.status(500).json({ error: 'Failed to delete record' });
+  }
+});
+
 // ======================================================================
 // SETTLEMENTS (DRIVER CASHIER LEDGER)
 // ======================================================================
