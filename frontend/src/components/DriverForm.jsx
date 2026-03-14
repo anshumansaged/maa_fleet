@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Calculator, User, Wallet, Fuel, Send, Sparkles, Car, ToggleLeft, Plus, Trash2, ShieldCheck, Route, History, AlertTriangle, CheckCircle2, X, Banknote, ClipboardList, Info, ChevronDown, ChevronUp, Gauge } from 'lucide-react';
+import { Calculator, User, Wallet, Fuel, Send, Sparkles, Car, ToggleLeft, Plus, Trash2, ShieldCheck, Route, History, AlertTriangle, CheckCircle2, X, Banknote, ClipboardList, Info, ChevronDown, ChevronUp, Gauge, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import clsx from 'clsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
@@ -13,6 +13,8 @@ const ALL_PLATFORMS = [
 ];
 
 const PREDEFINED_CARS = ['3905', '4030', 'ev2335'];
+const EV_CARS = ['ev2335']; // Cars that use EV Charge by default
+const OFFLINE_PRESETS = [730, 365]; // Quick amounts for monthly customers
 
 export default function DriverForm() {
     const [drivers, setDrivers] = useState([]);
@@ -107,13 +109,39 @@ export default function DriverForm() {
         }
     }, [driverId, drivers]);
 
+    // Feature 1: Smart car → fuel auto-detect
+    const handleCarChange = (car) => {
+        setCarNumber(car);
+        setTouched({ ...touched, car: true });
+        if (EV_CARS.includes(car.toLowerCase())) {
+            setFuelEntries(prev => prev.map(f => ({ ...f, type: 'EV Charge' })));
+        } else {
+            setFuelEntries(prev => prev.map(f => f.type === 'EV Charge' ? { ...f, type: 'CNG' } : f));
+        }
+    };
+
+    // Feature 8: Swipe between drivers
     const togglePlatform = (id) => {
         setActivePlatforms(prev =>
             prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
         );
     };
 
-    const addFuelEntry = () => setFuelEntries([...fuelEntries, { id: Date.now(), amount: '', type: 'CNG', paidBy: 'driver' }]);
+    const switchDriver = (direction) => {
+        if (drivers.length === 0) return;
+        const currentIdx = drivers.findIndex(d => d.id === driverId);
+        let nextIdx;
+        if (direction === 'next') nextIdx = (currentIdx + 1) % drivers.length;
+        else nextIdx = (currentIdx - 1 + drivers.length) % drivers.length;
+        setDriverId(drivers[nextIdx].id);
+        // Haptic
+        if (navigator.vibrate) navigator.vibrate(15);
+    };
+
+    const addFuelEntry = () => {
+        const defaultType = EV_CARS.includes(carNumber.toLowerCase()) ? 'EV Charge' : 'CNG';
+        setFuelEntries([...fuelEntries, { id: Date.now(), amount: '', type: defaultType, paidBy: 'driver' }]);
+    };
     const removeFuelEntry = (id) => setFuelEntries(fuelEntries.filter(f => f.id !== id));
     const updateFuelEntry = (id, field, value) => {
         setFuelEntries(fuelEntries.map(f => f.id === id ? { ...f, [field]: value } : f));
@@ -277,6 +305,8 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
 
             await axios.post(`${API_URL}/records`, payload);
             setSuccess(true);
+            // Feature 9: Haptic success
+            if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
             window.open(`https://wa.me/?text=${generateWhatsAppMessage()}`, '_blank');
             setTimeout(() => setSuccess(false), 3000);
 
@@ -288,7 +318,11 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
             setDuplicateWarning(null); setErrors({}); setTouched({});
 
             fetchDrivers();
-        } catch (error) { alert("Error saving record."); }
+        } catch (error) {
+            alert("Error saving record.");
+            // Feature 9: Haptic error
+            if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 100]);
+        }
         finally { setSubmitting(false); }
     };
 
@@ -366,16 +400,29 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-slate-500 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Driver</label>
-                                <select value={driverId} onChange={e => { setDriverId(e.target.value); setTouched({ ...touched, driver: true }); }}
-                                    className={clsx("clean-input w-full rounded-2xl px-4 py-3 text-sm cursor-pointer", showError('driver') && "!border-rose-400 !bg-rose-50")} required>
-                                    <option value="" disabled>Select driver...</option>
-                                    {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                                </select>
+                                <div className="flex items-center gap-2">
+                                    <button type="button" onClick={() => switchDriver('prev')}
+                                        className="p-2.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-600 transition active:scale-90 flex-shrink-0">
+                                        <ChevronLeft className="w-4 h-4" />
+                                    </button>
+                                    <select value={driverId} onChange={e => { setDriverId(e.target.value); setTouched({ ...touched, driver: true }); }}
+                                        className={clsx("clean-input w-full rounded-2xl px-4 py-3 text-sm cursor-pointer", showError('driver') && "!border-rose-400 !bg-rose-50")} required>
+                                        <option value="" disabled>Select driver...</option>
+                                        {drivers.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                                    </select>
+                                    <button type="button" onClick={() => switchDriver('next')}
+                                        className="p-2.5 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-600 transition active:scale-90 flex-shrink-0">
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                </div>
                                 {showError('driver') && <p className="text-rose-500 text-[10px] font-bold">{errors.driver}</p>}
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-slate-500 flex items-center gap-2"><Car className="w-3.5 h-3.5" /> Vehicle</label>
-                                <select value={carNumber} onChange={e => { setCarNumber(e.target.value); setTouched({ ...touched, car: true }); }}
+                                <label className="text-xs font-bold text-slate-500 flex items-center gap-2">
+                                    <Car className="w-3.5 h-3.5" /> Vehicle
+                                    {EV_CARS.includes(carNumber.toLowerCase()) && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 rounded">⚡ EV</span>}
+                                </label>
+                                <select value={carNumber} onChange={e => handleCarChange(e.target.value)}
                                     className={clsx("clean-input w-full rounded-2xl px-4 py-3 text-sm uppercase cursor-pointer", showError('car') && "!border-rose-400 !bg-rose-50")} required>
                                     <option value="" disabled>Select car...</option>
                                     {PREDEFINED_CARS.map(c => <option key={c} value={c}>{c}</option>)}
@@ -437,6 +484,19 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                                 value={earnings[p.id] || ''} onChange={e => { setEarnings({ ...earnings, [p.id]: e.target.value }); setTouched({ ...touched, earnings: true }); }}
                                                 className={clsx("clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-brand-400", errors[`earn_${p.id}`] && "!border-rose-400")} />
                                             {errors[`earn_${p.id}`] && <p className="text-rose-500 text-[10px] font-bold">{errors[`earn_${p.id}`]}</p>}
+                                            {/* Feature 3: Quick presets for offline */}
+                                            {p.id === 'offline' && (
+                                                <div className="flex gap-1.5 mt-1">
+                                                    {OFFLINE_PRESETS.map(amt => (
+                                                        <button key={amt} type="button"
+                                                            onClick={() => { setEarnings({ ...earnings, offline: String(amt) }); setTouched({ ...touched, earnings: true }); if (navigator.vibrate) navigator.vibrate(10); }}
+                                                            className={clsx("px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95",
+                                                                String(earnings.offline) === String(amt) ? "bg-brand-600 text-white border-brand-600" : "bg-brand-50 text-brand-600 border-brand-100 hover:border-brand-300")}>
+                                                            ₹{amt}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
 
                                         <div className="space-y-1">

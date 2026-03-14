@@ -216,6 +216,120 @@ export default function AdminPanel() {
                 </div>
             </div>
 
+            {/* Feature 7: Driver Comparison Charts */}
+            {driverStats.length > 0 && (() => {
+                const maxEarnings = Math.max(...driverStats.map(d => d.totalEarnings || 0), 1);
+                const maxProfit = Math.max(...driverStats.map(d => Math.abs(d.profit || 0)), 1);
+                const maxKm = Math.max(...driverStats.map(d => d.totalKm || 0), 1);
+                const maxEarnPerKm = Math.max(...driverStats.map(d => (d.totalKm > 0 ? d.totalEarnings / d.totalKm : 0)), 1);
+                const maxFuelPerKm = Math.max(...driverStats.map(d => (d.totalKm > 0 ? (d.totalFuel || 0) / d.totalKm : 0)), 1) || 1;
+                const colors = ['#6366f1', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6'];
+
+                return (
+                    <div className="glass-panel overflow-hidden">
+                        <div className="p-6 border-b border-brand-100">
+                            <h2 className="text-lg font-extrabold text-brand-950 flex items-center gap-2">
+                                <TrendingUp className="w-5 h-5 text-brand-400" /> Driver Performance Comparison
+                            </h2>
+                            <p className="text-xs text-slate-400 mt-1">Visual comparison across all key metrics.</p>
+                        </div>
+
+                        <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Earnings */}
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Earnings</h3>
+                                {driverStats.map((d, i) => (
+                                    <div key={d.id} className="flex items-center gap-3">
+                                        <span className="text-xs font-bold text-brand-950 w-16 truncate capitalize">{d.name}</span>
+                                        <div className="flex-1 h-7 bg-brand-50 rounded-lg overflow-hidden relative">
+                                            <div className="h-full rounded-lg transition-all duration-1000 ease-out flex items-center justify-end pr-2"
+                                                style={{ width: `${Math.max((d.totalEarnings / maxEarnings) * 100, 2)}%`, background: colors[i % colors.length] }}>
+                                                <span className="text-[10px] font-black text-white drop-shadow">{fmt(d.totalEarnings)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Profit */}
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Profit (Fleet)</h3>
+                                {driverStats.map((d, i) => (
+                                    <div key={d.id} className="flex items-center gap-3">
+                                        <span className="text-xs font-bold text-brand-950 w-16 truncate capitalize">{d.name}</span>
+                                        <div className="flex-1 h-7 bg-brand-50 rounded-lg overflow-hidden relative">
+                                            <div className={clsx("h-full rounded-lg transition-all duration-1000 ease-out flex items-center justify-end pr-2")}
+                                                style={{ width: `${Math.max((Math.abs(d.profit) / maxProfit) * 100, 2)}%`, background: d.profit >= 0 ? '#10b981' : '#ef4444' }}>
+                                                <span className="text-[10px] font-black text-white drop-shadow">{fmt(d.profit)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* ₹/KM */}
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Earnings per KM</h3>
+                                {driverStats.map((d, i) => {
+                                    const perKm = d.totalKm > 0 ? d.totalEarnings / d.totalKm : 0;
+                                    return (
+                                        <div key={d.id} className="flex items-center gap-3">
+                                            <span className="text-xs font-bold text-brand-950 w-16 truncate capitalize">{d.name}</span>
+                                            <div className="flex-1 h-7 bg-brand-50 rounded-lg overflow-hidden relative">
+                                                <div className="h-full rounded-lg transition-all duration-1000 ease-out flex items-center justify-end pr-2"
+                                                    style={{ width: `${Math.max((perKm / maxEarnPerKm) * 100, 2)}%`, background: colors[(i + 2) % colors.length] }}>
+                                                    <span className="text-[10px] font-black text-white drop-shadow">₹{perKm.toFixed(1)}/km</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Total KM Driven */}
+                            <div className="space-y-3">
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Distance</h3>
+                                {driverStats.map((d, i) => (
+                                    <div key={d.id} className="flex items-center gap-3">
+                                        <span className="text-xs font-bold text-brand-950 w-16 truncate capitalize">{d.name}</span>
+                                        <div className="flex-1 h-7 bg-brand-50 rounded-lg overflow-hidden relative">
+                                            <div className="h-full rounded-lg transition-all duration-1000 ease-out flex items-center justify-end pr-2"
+                                                style={{ width: `${Math.max(((d.totalKm || 0) / maxKm) * 100, 2)}%`, background: colors[(i + 3) % colors.length] }}>
+                                                <span className="text-[10px] font-black text-white drop-shadow">{d.totalKm || 0} km</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Leaderboard strip */}
+                        <div className="px-6 pb-6">
+                            <div className="bg-gradient-to-r from-brand-600 to-pink-500 rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                {(() => {
+                                    const best = (fn) => driverStats.reduce((a, b) => fn(a) > fn(b) ? a : b, driverStats[0]);
+                                    const topEarner = best(d => d.totalEarnings);
+                                    const topProfit = best(d => d.profit);
+                                    const topEfficiency = best(d => d.totalKm > 0 ? d.totalEarnings / d.totalKm : 0);
+                                    const mostTrips = best(d => d.trips);
+                                    return [
+                                        { label: '🏆 Top Earner', name: topEarner?.name },
+                                        { label: '💎 Most Profitable', name: topProfit?.name },
+                                        { label: '⚡ Most Efficient', name: topEfficiency?.name },
+                                        { label: '🚗 Most Trips', name: mostTrips?.name },
+                                    ].map(item => (
+                                        <div key={item.label} className="text-center">
+                                            <p className="text-[10px] font-bold text-white/70">{item.label}</p>
+                                            <p className="text-sm font-black text-white capitalize mt-0.5">{item.name}</p>
+                                        </div>
+                                    ));
+                                })()}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
             {/* Central Cashier / Ledger Section */}
             <div className="glass-panel overflow-hidden">
                 <div className="p-6 border-b border-brand-100">
