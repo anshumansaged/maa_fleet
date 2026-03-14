@@ -215,22 +215,35 @@ export default function DriverForm() {
     };
 
     const generateWhatsAppMessage = () => {
-        return encodeURIComponent(`*Shift Report - Maa Fleet* 🚗
-Date: ${date} | Driver: *${selectedDriver?.name || 'Unknown'}*
-Km: ${tStartKm} to ${tEndKm} (Total: *${totalKm}km*)
-━━━━━━━━━━━━━━━━
-*💰 Earnings*
+        const dName = selectedDriver?.name || 'Unknown';
+        return encodeURIComponent(`*🚗 MAA FLEET - SHIFT REPORT*
+━━━━━━━━━━━━━━━━━━━
+🗓️ *Date:* ${date}
+👤 *Driver:* *${dName.charAt(0).toUpperCase() + dName.slice(1)}*
+🛣️ *Distance:* ${totalKm} km (${tStartKm} - ${tEndKm})
+
+*🟢 EARNINGS*
 ${activePlatforms.map(p => {
             const plat = ALL_PLATFORMS.find(x => x.id === p);
-            return `${plat.label}: ₹${v(earnings[p])}`;
+            return `▹ ${plat.label}: ₹${v(earnings[p])}`;
         }).join('\n')}
-*Gross: ₹${totalEarnings}*
+*Gross Total: ₹${totalEarnings}*
 
-*⛽ Deductions*
-Fuel (Driver): ₹${driverPaidFuel}${fleetPaidFuel > 0 ? ` | Fuel (Fleet): ₹${fleetPaidFuel}` : ''}
-Comm: ₹${totalCommission} | Other: ₹${v(expenses.otherExpenses)}
-Online Pay: ₹${onlinePayments}
-━━━━━━━━━━━━━━━━`);
+*🔴 DEDUCTIONS*
+▹ Fuel (Driver): ₹${driverPaidFuel}${fleetPaidFuel > 0 ? `\n▹ Fuel (Fleet): ₹${fleetPaidFuel} (no deduction)` : ''}
+▹ Commission: ₹${totalCommission}
+▹ Other Exp: ₹${v(expenses.otherExpenses)}
+▹ Online Pay: ₹${onlinePayments}
+
+*💵 PAYOUT SUMMARY*
+▹ Driver Salary (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(0)}
+▹ Cash to Handover: ₹${v(cashToCashier).toFixed(0)}
+
+*💳 ACCOUNT BALANCE*
+▹ Previous: ₹${Math.abs(previousBalance).toFixed(0)} (${balanceLabel(previousBalance)})
+▹ Today Net: ${todayDifference >= 0 ? '+' : ''}₹${todayDifference.toFixed(0)}
+*Final Balance: ₹${Math.abs(newTotalBalance).toFixed(0)} (${balanceLabel(newTotalBalance)})*
+━━━━━━━━━━━━━━━━━━━`);
     };
 
     // Feature 5: Daily Summary
