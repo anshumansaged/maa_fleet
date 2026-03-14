@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Fuel, AlertCircle, TrendingUp, Wallet, CheckCircle2, Clock, BarChart3, ArrowUpRight, ArrowDownRight, Plus, X, Wrench, FileText, Shield, CircleDollarSign, User, Car } from 'lucide-react';
+import { Fuel, AlertCircle, TrendingUp, Wallet, CheckCircle2, Clock, BarChart3, ArrowUpRight, ArrowDownRight, Plus, X, Wrench, FileText, Shield, CircleDollarSign, User, Car, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
