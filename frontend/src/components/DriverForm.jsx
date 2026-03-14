@@ -243,6 +243,14 @@ ${activePlatforms.map(p => {
 ▹ Previous: ₹${Math.abs(previousBalance).toFixed(0)} (${balanceLabel(previousBalance)})
 ▹ Today Net: ${todayDifference >= 0 ? '+' : ''}₹${todayDifference.toFixed(0)}
 *Final Balance: ₹${Math.abs(newTotalBalance).toFixed(0)} (${balanceLabel(newTotalBalance)})*
+
+*💡 HOW IT WORKS / ये कैसे काम करता है?*
+• *Net Earning (कुल कमाई):* 
+  ₹${totalEarnings} (Gross) - ₹${totalCommission} (Comm) = ₹${netEarnings.toFixed(0)}
+• *Your Salary (आपकी पगार):* 
+  ₹${netEarnings.toFixed(0)} × ${(driverPercentage * 100).toFixed(0)}% = ₹${driverSalary.toFixed(0)}
+• *Cash Handover (आपको मालिक को देने हैं):* 
+  ₹${totalCash.toFixed(0)} (Cash Rcvd) - ₹${driverPaidFuel} (Fuel) - ₹${v(expenses.otherExpenses)} (Exp) - ₹${onlinePayments} (Online) - ₹${driverSalary.toFixed(0)} (Salary) = ₹${v(cashToCashier).toFixed(0)}
 ━━━━━━━━━━━━━━━━━━━`);
     };
 
