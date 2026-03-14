@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Calculator, User, Wallet, Fuel, Send, Sparkles, Car, ToggleLeft, Plus, Trash2, ShieldCheck, Route, History, AlertTriangle, CheckCircle2, X, Banknote, ClipboardList } from 'lucide-react';
+import { Calculator, User, Wallet, Fuel, Send, Sparkles, Car, ToggleLeft, Plus, Trash2, ShieldCheck, Route, History, AlertTriangle, CheckCircle2, X, Banknote, ClipboardList, Info, ChevronDown, ChevronUp, Gauge } from 'lucide-react';
 import clsx from 'clsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
@@ -620,6 +620,7 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
             {/* SIDEBAR */}
             <div className="xl:col-span-4">
                 <div className="xl:sticky xl:top-28 space-y-6">
+                    {/* Numbers Summary */}
                     <div className="glass-panel p-6 space-y-5">
                         <Section title="Revenue">
                             <Row label="Gross Earnings" value={totalEarnings} />
@@ -651,6 +652,61 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                             </p>
                         </Section>
                     </div>
+
+                    {/* Efficiency Metrics */}
+                    {totalEarnings > 0 && (
+                        <div className="glass-panel p-6 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <Gauge className="w-4 h-4 text-brand-400" />
+                                <h4 className="text-[10px] font-bold text-brand-400 uppercase tracking-[0.2em]">Efficiency</h4>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="surface-card p-3 text-center !rounded-xl">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">₹ per KM</p>
+                                    <p className="text-lg font-black text-brand-700 tabular-nums">
+                                        {totalKm > 0 ? `₹${(totalEarnings / totalKm).toFixed(1)}` : '—'}
+                                    </p>
+                                </div>
+                                <div className="surface-card p-3 text-center !rounded-xl">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Comm %</p>
+                                    <p className="text-lg font-black text-violet-600 tabular-nums">
+                                        {totalEarnings > 0 ? `${((totalCommission / totalEarnings) * 100).toFixed(1)}%` : '0%'}
+                                    </p>
+                                </div>
+                                <div className="surface-card p-3 text-center !rounded-xl">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Fuel / KM</p>
+                                    <p className="text-lg font-black text-rose-600 tabular-nums">
+                                        {totalKm > 0 ? `₹${(totalFuel / totalKm).toFixed(1)}` : '—'}
+                                    </p>
+                                </div>
+                                <div className="surface-card p-3 text-center !rounded-xl">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Profit / KM</p>
+                                    <p className="text-lg font-black text-emerald-600 tabular-nums">
+                                        {totalKm > 0 ? `₹${((netEarnings - driverSalary - totalExpenses) / totalKm).toFixed(1)}` : '—'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Explainer Card — Simple language breakdown */}
+                    <ExplainerCard
+                        selectedDriver={selectedDriver}
+                        totalEarnings={totalEarnings}
+                        totalCommission={totalCommission}
+                        netEarnings={netEarnings}
+                        driverPercentage={driverPercentage}
+                        driverSalary={driverSalary}
+                        totalCash={totalCash}
+                        totalFuel={totalFuel}
+                        totalExpenses={totalExpenses}
+                        onlinePayments={onlinePayments}
+                        cashInHand={cashInHand}
+                        cashToCashier={v(cashToCashier)}
+                        previousBalance={previousBalance}
+                        newTotalBalance={newTotalBalance}
+                        balanceLabel={balanceLabel}
+                    />
                 </div>
             </div>
         </div>
@@ -848,6 +904,100 @@ function MiniKpi({ label, value, negative }) {
             <p className={clsx("text-base font-black tabular-nums", negative ? "text-rose-600" : "text-brand-950")}>
                 ₹{(value || 0).toFixed(0)}
             </p>
+        </div>
+    );
+}
+
+function ExplainerCard({ selectedDriver, totalEarnings, totalCommission, netEarnings, driverPercentage, driverSalary, totalCash, totalFuel, totalExpenses, onlinePayments, cashInHand, cashToCashier, previousBalance, newTotalBalance, balanceLabel }) {
+    const [open, setOpen] = useState(false);
+    const driverName = selectedDriver?.name || 'Driver';
+    const pct = (driverPercentage * 100).toFixed(0);
+
+    if (totalEarnings <= 0) return null;
+
+    const steps = [
+        {
+            emoji: '💰',
+            title: 'Total Earnings',
+            text: `${driverName} earned ₹${totalEarnings.toFixed(0)} from all platforms today.`
+        },
+        totalCommission > 0 && {
+            emoji: '🏢',
+            title: 'Platform Commission',
+            text: `Uber/Yatri took ₹${totalCommission.toFixed(0)} as commission. So real earnings = ₹${totalEarnings.toFixed(0)} − ₹${totalCommission.toFixed(0)} = ₹${netEarnings.toFixed(0)}.`
+        },
+        {
+            emoji: '👤',
+            title: `Driver's Salary (${pct}%)`,
+            text: `${driverName} gets ${pct}% of ₹${netEarnings.toFixed(0)} = ₹${driverSalary.toFixed(0)}. This is taken from the cash directly.`
+        },
+        {
+            emoji: '💵',
+            title: 'Cash Collected',
+            text: `${driverName} received ₹${totalCash.toFixed(0)} in cash from passengers today.`
+        },
+        (totalFuel > 0 || totalExpenses > 0) && {
+            emoji: '⛽',
+            title: 'Expenses',
+            text: `Fuel: ₹${totalFuel.toFixed(0)}${totalExpenses > totalFuel ? ` + Other: ₹${(totalExpenses - totalFuel).toFixed(0)}` : ''} = Total ₹${totalExpenses.toFixed(0)} was spent. This is deducted from cash.`
+        },
+        onlinePayments > 0 && {
+            emoji: '📱',
+            title: 'Online Payments',
+            text: `₹${onlinePayments.toFixed(0)} was paid via UPI/online. This reduces the cash the driver has.`
+        },
+        {
+            emoji: '🧮',
+            title: 'Cash to Give Cashier',
+            text: `Cash (₹${totalCash.toFixed(0)}) − Expenses (₹${totalExpenses.toFixed(0)}) − Online Pay (₹${onlinePayments.toFixed(0)}) − Salary (₹${driverSalary.toFixed(0)}) = ₹${cashInHand.toFixed(0)}. ${cashInHand >= 0 ? 'Driver needs to give this to cashier.' : 'Fleet needs to pay the driver this much.'}`
+        },
+        cashToCashier > 0 && {
+            emoji: '🤝',
+            title: 'Actual Handover',
+            text: `${driverName} actually gave ₹${cashToCashier.toFixed(0)} to cashier. ${Math.abs(cashInHand - cashToCashier) < 1 ? 'Fully settled! ✓' : cashInHand > cashToCashier ? `Still ₹${(cashInHand - cashToCashier).toFixed(0)} pending.` : `Gave ₹${(cashToCashier - cashInHand).toFixed(0)} extra.`}`
+        },
+        previousBalance !== 0 && {
+            emoji: '📒',
+            title: 'Running Balance',
+            text: `Previous balance was ₹${Math.abs(previousBalance).toFixed(0)} (${balanceLabel(previousBalance)}). After today, new balance is ₹${Math.abs(newTotalBalance).toFixed(0)} (${balanceLabel(newTotalBalance)}).`
+        }
+    ].filter(Boolean);
+
+    return (
+        <div className="glass-panel overflow-hidden">
+            <button type="button" onClick={() => setOpen(!open)}
+                className="w-full p-5 flex items-center justify-between hover:bg-brand-50/50 transition-colors">
+                <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-gradient-to-br from-brand-100 to-pink-100 rounded-xl">
+                        <Info className="w-4 h-4 text-brand-600" />
+                    </div>
+                    <div className="text-left">
+                        <h4 className="text-sm font-extrabold text-brand-950">How is this calculated?</h4>
+                        <p className="text-[10px] text-slate-400 font-semibold">Step-by-step breakdown in simple words</p>
+                    </div>
+                </div>
+                {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+            </button>
+
+            {open && (
+                <div className="px-5 pb-5 space-y-0 animate-fadeUp">
+                    {steps.map((step, i) => (
+                        <div key={i} className="flex gap-3 py-3 border-t border-brand-50 first:border-0">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-brand-50 flex items-center justify-center text-sm">
+                                {step.emoji}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h5 className="text-xs font-extrabold text-brand-700 mb-0.5">
+                                    Step {i + 1}: {step.title}
+                                </h5>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    {step.text}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
