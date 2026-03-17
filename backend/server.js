@@ -188,11 +188,12 @@ app.delete('/api/records/:id', async (req, res) => {
 // ======================================================================
 app.post('/api/settlements', async (req, res) => {
   try {
-    const { driverId, amount, cashierName, description, date } = req.body;
+    const { driverId, amount, cashierName, description, date, method } = req.body;
     const settlement = await prisma.settlement.create({
       data: {
         driverId,
         amount: parseFloat(amount),
+        method: method || 'cash',
         cashierName,
         description: description || null,
         date: date ? new Date(date) : new Date(),
@@ -493,7 +494,7 @@ app.get('/api/daily-summary', async (req, res) => {
 // ======================================================================
 app.post('/api/quick-settle', async (req, res) => {
   try {
-    const { driverId, amount, direction } = req.body;
+    const { driverId, amount, direction, method } = req.body;
     // direction: 'driver_pays' (driver gives cash to fleet) or 'fleet_pays' (fleet gives cash to driver)
     const finalAmount = direction === 'driver_pays' ? Math.abs(parseFloat(amount)) : -Math.abs(parseFloat(amount));
 
@@ -501,8 +502,9 @@ app.post('/api/quick-settle', async (req, res) => {
       data: {
         driverId,
         amount: finalAmount,
+        method: method || 'cash',
         cashierName: 'Cashier',
-        description: `Quick settle from cashier view`,
+        description: `Quick settle via ${method || 'cash'}`,
         date: new Date(),
       }
     });
@@ -510,6 +512,80 @@ app.post('/api/quick-settle', async (req, res) => {
   } catch (error) {
     console.error('Error quick settling:', error);
     res.status(500).json({ error: 'Failed to settle' });
+  }
+});
+
+// ======================================================================
+// CASHIER DEPOSITS — Track cashier → owner money transfers
+// ======================================================================
+app.post('/api/cashier-deposits', async (req, res) => {
+  try {
+    const { amount, method, cashierName, description, date } = req.body;
+    const deposit = await prisma.cashierDeposit.create({
+      data: {
+        amount: parseFloat(amount),
+        method: method || 'cash',
+        cashierName,
+        description: description || null,
+        date: date ? new Date(date) : new Date(),
+      }
+    });
+    res.status(201).json(deposit);
+  } catch (error) {
+    console.error("Error creating cashier deposit:", error);
+    res.status(500).json({ error: 'Failed to create deposit' });
+  }
+});
+
+app.get('/api/cashier-deposits', async (req, res) => {
+  try {
+    const range = req.query.range || 'all';
+    const dateFilter = getDateRange(range);
+    const where = Object.keys(dateFilter).length ? { date: dateFilter } : {};
+
+    const deposits = await prisma.cashierDeposit.findMany({
+      where,
+      orderBy: { date: 'desc' }
+    });
+    res.json(deposits);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch cashier deposits' });
+  }
+});
+
+// Cashier balance: total cash held by cashier
+app.get('/api/cashier-balance', async (req, res) => {
+  try {
+    // Cash IN: daily cashToCashier from records + cash settlements where driver paid cash
+    const records = await prisma.dailyRecord.findMany({ select: { cashToCashier: true } });
+    const cashFromRecords = records.reduce((s, r) => s + r.cashToCashier, 0);
+
+    const settlements = await prisma.settlement.findMany({ select: { amount: true, method: true } });
+    // Positive settlement = driver paid. Only cash settlements add to cashier.
+    const cashFromSettlements = settlements
+      .filter(s => s.method === 'cash' && s.amount > 0)
+      .reduce((s, r) => s + r.amount, 0);
+    // Negative settlement via cash = cashier paid driver from cash
+    const cashPaidOut = settlements
+      .filter(s => s.method === 'cash' && s.amount < 0)
+      .reduce((s, r) => s + Math.abs(r.amount), 0);
+
+    // Cash OUT: deposits to owner
+    const deposits = await prisma.cashierDeposit.findMany({ select: { amount: true } });
+    const totalDeposited = deposits.reduce((s, d) => s + d.amount, 0);
+
+    const cashierBalance = cashFromRecords + cashFromSettlements - cashPaidOut - totalDeposited;
+
+    res.json({
+      cashFromRecords,
+      cashFromSettlements,
+      cashPaidOut,
+      totalDeposited,
+      cashierBalance,
+    });
+  } catch (error) {
+    console.error("Error fetching cashier balance:", error);
+    res.status(500).json({ error: 'Failed to fetch cashier balance' });
   }
 });
 

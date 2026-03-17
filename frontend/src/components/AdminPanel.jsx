@@ -45,8 +45,18 @@ export default function AdminPanel() {
     const [batchSettling, setBatchSettling] = useState(false);
     const [copied, setCopied] = useState(false);
 
+    const [settleMethod, setSettleMethod] = useState('cash');
+
     // Admin tabs
     const [activeTab, setActiveTab] = useState('overview');
+
+    // Cashier balance & deposits
+    const [cashierBalance, setCashierBalance] = useState(null);
+    const [cashierDeposits, setCashierDeposits] = useState([]);
+    const [showDepositModal, setShowDepositModal] = useState(false);
+    const [depositAmount, setDepositAmount] = useState('');
+    const [depositMethod, setDepositMethod] = useState('cash');
+    const [depositing, setDepositing] = useState(false);
 
     // Misc expense form
     const [showMiscForm, setShowMiscForm] = useState(false);
@@ -58,13 +68,15 @@ export default function AdminPanel() {
     const fetchAll = async () => {
         setLoading(true);
         try {
-            const [ov, ds, rec, misc, drv, settl] = await Promise.all([
+            const [ov, ds, rec, misc, drv, settl, cb, cd] = await Promise.all([
                 axios.get(`${API_URL}/analytics/overview?range=${range}`),
                 axios.get(`${API_URL}/analytics/drivers?range=${range}`),
                 axios.get(`${API_URL}/records?range=${range}`),
                 axios.get(`${API_URL}/misc-expenses?range=${range}`),
                 axios.get(`${API_URL}/drivers`),
                 axios.get(`${API_URL}/settlements?range=${range}`),
+                axios.get(`${API_URL}/cashier-balance`),
+                axios.get(`${API_URL}/cashier-deposits?range=${range}`),
             ]);
             setOverview(ov.data);
             setDriverStats(ds.data);
@@ -72,6 +84,8 @@ export default function AdminPanel() {
             setMiscExpenses(misc.data);
             setDrivers(drv.data);
             setSettlements(settl.data);
+            setCashierBalance(cb.data);
+            setCashierDeposits(cd.data);
         } catch (err) { console.error('Fetch failed', err); }
         finally { setLoading(false); }
     };
@@ -84,6 +98,7 @@ export default function AdminPanel() {
             await axios.post(`${API_URL}/settlements`, {
                 driverId: settleDriver.id,
                 amount: amt,
+                method: settleMethod,
                 cashierName: settleCashierName
             });
             localStorage.setItem('maafleet_cashier_name', settleCashierName);
@@ -153,6 +168,23 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
             return `▹ ${d.name}: ₹${Math.abs(d.currentBalance).toFixed(0)} (${label})`;
         }).join('\n') || 'All settled ✓'}
 ━━━━━━━━━━━━━━━━━━━`);
+    };
+
+    const handleDeposit = async (e) => {
+        e.preventDefault();
+        setDepositing(true);
+        try {
+            const cashier = settleCashierName || localStorage.getItem('maafleet_cashier_name') || 'Cashier';
+            await axios.post(`${API_URL}/cashier-deposits`, {
+                amount: parseFloat(depositAmount),
+                method: depositMethod,
+                cashierName: cashier,
+            });
+            setShowDepositModal(false);
+            setDepositAmount('');
+            fetchAll();
+        } catch (err) { alert("Failed to record deposit"); }
+        finally { setDepositing(false); }
     };
 
     const handleCopyAdminSummary = async () => {
@@ -446,6 +478,62 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                 );
             })()}
 
+            {/* Cashier Cash Balance Card */}
+            {activeTab === 'cashier' && cashierBalance && (
+                <div className="glass-panel p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+                        <div>
+                            <h2 className="text-lg font-extrabold text-brand-950 flex items-center gap-2">
+                                <Wallet className="w-5 h-5 text-brand-600" /> Cashier Cash Holding
+                            </h2>
+                            <p className="text-xs text-slate-400 mt-1">Total cash currently held by the cashier (not yet deposited to owner).</p>
+                        </div>
+                        <button onClick={() => { setDepositAmount(cashierBalance.cashierBalance > 0 ? cashierBalance.cashierBalance.toFixed(0) : ''); setShowDepositModal(true); }}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:-translate-y-0.5 active:scale-95 transition-all">
+                            <ArrowUpRight className="w-4 h-4" /> Deposit to Owner
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                        <div className="surface-card p-3 text-center">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">From Shifts</p>
+                            <p className="text-base font-black text-brand-700 tabular-nums">{fmt(cashierBalance.cashFromRecords)}</p>
+                        </div>
+                        <div className="surface-card p-3 text-center">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Cash Settlements</p>
+                            <p className="text-base font-black text-emerald-600 tabular-nums">{fmt(cashierBalance.cashFromSettlements)}</p>
+                        </div>
+                        <div className="surface-card p-3 text-center">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Cash Paid Out</p>
+                            <p className="text-base font-black text-rose-600 tabular-nums">−{fmt(cashierBalance.cashPaidOut)}</p>
+                        </div>
+                        <div className="surface-card p-3 text-center">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Deposited</p>
+                            <p className="text-base font-black text-rose-600 tabular-nums">−{fmt(cashierBalance.totalDeposited)}</p>
+                        </div>
+                        <div className={clsx("surface-card p-3 text-center !border-brand-300 ring-2 ring-brand-100")}>
+                            <p className="text-[10px] font-bold text-brand-400 uppercase mb-1">Cash in Hand</p>
+                            <p className="text-2xl font-black text-brand-700 tabular-nums">{fmt(cashierBalance.cashierBalance)}</p>
+                        </div>
+                    </div>
+                    {/* Recent Deposits */}
+                    {cashierDeposits.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Recent Deposits to Owner</h3>
+                            {cashierDeposits.slice(0, 5).map(d => (
+                                <div key={d.id} className="flex justify-between items-center text-sm py-2 border-b border-brand-50 last:border-0">
+                                    <div className="flex items-center gap-2">
+                                        <span className={clsx("px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                                            d.method === 'upi' ? "bg-brand-100 text-brand-700" : "bg-emerald-100 text-emerald-700")}>{d.method}</span>
+                                        <span className="text-slate-400 text-xs">{format(new Date(d.date), 'MMM dd')}</span>
+                                    </div>
+                                    <span className="font-black text-brand-950 tabular-nums">{fmt(d.amount)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Central Cashier / Ledger Section */}
             {activeTab === 'cashier' && <div className="glass-panel overflow-hidden">
                 <div className="p-6 border-b border-brand-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -508,15 +596,21 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                                     <td className="px-6 py-4 text-slate-400 font-medium">{format(new Date(s.date), 'MMM dd, yyyy')}</td>
                                     <td className="px-6 py-4 font-bold text-brand-950 capitalize">{s.driver?.name}</td>
                                     <td className="px-6 py-4">
-                                        {s.amount > 0 ? (
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200">
-                                                Received Cash
+                                        <div className="flex items-center gap-1.5">
+                                            {s.amount > 0 ? (
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200">
+                                                    Received
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center px-2.5 py-1 rounded bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200">
+                                                    Paid
+                                                </span>
+                                            )}
+                                            <span className={clsx("px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
+                                                (s.method || 'cash') === 'upi' ? "bg-brand-100 text-brand-700" : "bg-slate-100 text-slate-500")}>
+                                                {s.method || 'cash'}
                                             </span>
-                                        ) : (
-                                            <span className="inline-flex items-center px-2.5 py-1 rounded bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200">
-                                                Paid Salary
-                                            </span>
-                                        )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4 text-slate-600 text-xs font-bold">{s.cashierName || 'Not recorded'}</td>
                                     <td className="px-6 py-4 text-right font-black text-base tabular-nums">
@@ -736,8 +830,26 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                                     className="clean-input w-full rounded-2xl px-5 py-3.5 font-black text-lg text-center" />
                             </div>
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-brand-400 uppercase tracking-wider">Cashier Name</label>
-                                <input type="text" required placeholder="Who is handling the cash?" value={settleCashierName} onChange={e => setSettleCashierName(e.target.value)}
+                                <label className="text-xs font-bold text-brand-400 uppercase tracking-wider">Payment Method</label>
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={() => setSettleMethod('cash')}
+                                        className={clsx("flex-1 py-2.5 rounded-xl text-sm font-bold transition-all border-2",
+                                            settleMethod === 'cash' ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-400 border-gray-200")}>
+                                        💵 Cash
+                                    </button>
+                                    <button type="button" onClick={() => setSettleMethod('upi')}
+                                        className={clsx("flex-1 py-2.5 rounded-xl text-sm font-bold transition-all border-2",
+                                            settleMethod === 'upi' ? "bg-brand-600 text-white border-brand-600" : "bg-white text-slate-400 border-gray-200")}>
+                                        📱 UPI
+                                    </button>
+                                </div>
+                                <p className="text-[10px] text-slate-400 text-center">
+                                    {settleMethod === 'cash' ? 'Cash goes to Cashier' : 'UPI goes directly to Owner'}
+                                </p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-brand-400 uppercase tracking-wider">{settleMethod === 'cash' ? 'Cashier Name' : 'Received By'}</label>
+                                <input type="text" required placeholder={settleMethod === 'cash' ? 'Cashier name' : 'Owner name'} value={settleCashierName} onChange={e => setSettleCashierName(e.target.value)}
                                     className="clean-input w-full rounded-2xl px-5 py-3.5 text-center font-bold" />
                             </div>
                         </div>
@@ -781,6 +893,50 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+
+            {/* Deposit to Owner Modal */}
+            {showDepositModal && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+                    <form onSubmit={handleDeposit} className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl p-6 sm:p-8 animate-scaleIn">
+                        <div className="text-center mb-6">
+                            <div className="mx-auto w-12 h-12 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mb-3">
+                                <ArrowUpRight className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-xl font-extrabold text-brand-950">Deposit to Owner</h2>
+                            <p className="text-sm text-slate-400 mt-1">Record cash/UPI transfer from cashier to owner</p>
+                        </div>
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-brand-400 uppercase tracking-wider">Amount (₹)</label>
+                                <input type="number" step="0.01" required value={depositAmount} onChange={e => setDepositAmount(e.target.value)}
+                                    className="clean-input w-full rounded-2xl px-5 py-3.5 font-black text-lg text-center" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-brand-400 uppercase tracking-wider">Method</label>
+                                <div className="flex gap-2">
+                                    <button type="button" onClick={() => setDepositMethod('cash')}
+                                        className={clsx("flex-1 py-2.5 rounded-xl text-sm font-bold transition-all border-2",
+                                            depositMethod === 'cash' ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-400 border-gray-200")}>
+                                        💵 Cash
+                                    </button>
+                                    <button type="button" onClick={() => setDepositMethod('upi')}
+                                        className={clsx("flex-1 py-2.5 rounded-xl text-sm font-bold transition-all border-2",
+                                            depositMethod === 'upi' ? "bg-brand-600 text-white border-brand-600" : "bg-white text-slate-400 border-gray-200")}>
+                                        📱 UPI
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-6 flex gap-3">
+                            <button type="button" onClick={() => setShowDepositModal(false)} className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">Cancel</button>
+                            <button type="submit" disabled={depositing || !depositAmount}
+                                className="flex-1 py-3.5 rounded-2xl font-bold bg-emerald-500 text-white shadow-xl shadow-emerald-500/30 hover:-translate-y-0.5 transition-transform active:scale-95 disabled:opacity-50">
+                                {depositing ? 'Recording...' : 'Confirm Deposit'}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             )}
         </div>

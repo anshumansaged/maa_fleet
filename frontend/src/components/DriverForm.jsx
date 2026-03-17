@@ -54,6 +54,7 @@ export default function DriverForm() {
     // Feature: Quick settle modal
     const [showSettleModal, setShowSettleModal] = useState(false);
     const [settleAmount, setSettleAmount] = useState('');
+    const [settleMethod, setSettleMethod] = useState('cash');
     const [settling, setSettling] = useState(false);
 
     // Feature: Collapsible additional deductions
@@ -446,7 +447,8 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
             await axios.post(`${API_URL}/quick-settle`, {
                 driverId: selectedDriver.id,
                 amount: parseFloat(settleAmount),
-                direction
+                direction,
+                method: settleMethod
             });
             setShowSettleModal(false);
             setSettleAmount('');
@@ -736,26 +738,30 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                             </div>
                         </div>
 
-                        {/* Other Deductions — Collapsible */}
+                        {/* UPI Payments — Always visible */}
+                        <div className="surface-card p-3 sm:p-4">
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                                    <Wallet className="w-3.5 h-3.5 text-brand-400" /> UPI / Online Payments (₹)
+                                </label>
+                                {onlinePayments > 0 && <span className="text-xs font-black text-brand-700">₹{onlinePayments}</span>}
+                            </div>
+                            <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
+                                value={expenses.onlinePayments} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, onlinePayments: val }); }}
+                                className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold mt-2" />
+                        </div>
+
+                        {/* Other Expenses — Collapsible */}
                         <button type="button" onClick={() => setShowAdditional(!showAdditional)}
                             className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-brand-600 transition-colors w-full">
                             {showAdditional ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                            Other Deductions {(v(expenses.otherExpenses) > 0 || onlinePayments > 0) && <span className="text-rose-500">₹{(v(expenses.otherExpenses) + onlinePayments).toFixed(0)}</span>}
+                            Other Misc Expenses {v(expenses.otherExpenses) > 0 && <span className="text-rose-500">₹{v(expenses.otherExpenses).toFixed(0)}</span>}
                         </button>
                         {showAdditional && (
-                            <div className="grid grid-cols-2 gap-3 animate-fadeUp">
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Misc Expenses (₹)</label>
-                                    <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
-                                        value={expenses.otherExpenses} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, otherExpenses: val }); }}
-                                        className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold" />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Online / UPI (₹)</label>
-                                    <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
-                                        value={expenses.onlinePayments} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, onlinePayments: val }); }}
-                                        className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold" />
-                                </div>
+                            <div className="animate-fadeUp">
+                                <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
+                                    value={expenses.otherExpenses} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, otherExpenses: val }); }}
+                                    className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold" />
                             </div>
                         )}
                     </div>
@@ -1046,6 +1052,24 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                             <label className="text-xs font-bold text-brand-400 uppercase tracking-wider">Amount (₹)</label>
                             <input type="number" step="0.01" required value={settleAmount} onChange={e => setSettleAmount(e.target.value)}
                                 className="clean-input w-full rounded-2xl px-5 py-3.5 font-black text-lg text-center" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-bold text-brand-400 uppercase tracking-wider">Payment Method</label>
+                            <div className="flex gap-2">
+                                <button type="button" onClick={() => setSettleMethod('cash')}
+                                    className={clsx("flex-1 py-2.5 rounded-xl text-sm font-bold transition-all border-2",
+                                        settleMethod === 'cash' ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-400 border-gray-200")}>
+                                    💵 Cash
+                                </button>
+                                <button type="button" onClick={() => setSettleMethod('upi')}
+                                    className={clsx("flex-1 py-2.5 rounded-xl text-sm font-bold transition-all border-2",
+                                        settleMethod === 'upi' ? "bg-brand-600 text-white border-brand-600" : "bg-white text-slate-400 border-gray-200")}>
+                                    📱 UPI
+                                </button>
+                            </div>
+                            <p className="text-[10px] text-slate-400 text-center">
+                                {settleMethod === 'cash' ? 'Cash goes to Cashier' : 'UPI goes directly to Owner'}
+                            </p>
                         </div>
                     </div>
                     <div className="mt-6 flex gap-3">

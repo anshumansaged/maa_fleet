@@ -80,6 +80,18 @@ model Settlement {
   driverId    String
   driver      Driver   @relation(fields: [driverId], references: [id])
   amount      Float    // Positive = Driver paid Cashier. Negative = Cashier paid Driver.
+  method      String   @default("cash") // "cash" or "upi"
+  cashierName String
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model CashierDeposit {
+  id          String   @id @default(uuid())
+  amount      Float    // Amount cashier deposited to owner
+  method      String   @default("cash") // "cash", "upi", "bank_transfer"
   cashierName String
   description String?
   date        DateTime @default(now())
