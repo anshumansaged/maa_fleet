@@ -16,6 +16,13 @@ const PREDEFINED_CARS = ['3905', '4030', 'ev2335'];
 const EV_CARS = ['ev2335']; // Cars that use EV Charge by default
 const OFFLINE_PRESETS = [730, 365]; // Quick amounts for monthly customers
 
+// Default car per driver (auto-fills but can be changed)
+const DRIVER_DEFAULT_CAR = {
+    'vivek': 'ev2335',
+    'chhotelal': '4030',
+    'kokan': '3905',
+};
+
 export default function DriverForm() {
     const [drivers, setDrivers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -107,11 +114,17 @@ export default function DriverForm() {
     useEffect(() => {
         if (!driverId || drivers.length === 0) return;
         const driver = drivers.find(d => d.id === driverId);
+
+        // Default car from mapping (fallback if no last record)
+        const defaultCar = DRIVER_DEFAULT_CAR[driver?.name?.toLowerCase()] || '';
+        if (defaultCar) handleCarChange(defaultCar);
+
         if (!driver?.records?.length) return;
 
         const lastRecord = driver.records[0]; // already sorted desc by date
         if (lastRecord) {
-            setCarNumber(lastRecord.carNumber || '');
+            const car = lastRecord.carNumber || defaultCar;
+            if (car) handleCarChange(car);
             setStartKm(lastRecord.endKm ? String(lastRecord.endKm) : '');
 
             // Restore active platforms from last shift
