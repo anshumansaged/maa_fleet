@@ -5,7 +5,7 @@ import clsx from 'clsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
 const ALL_PLATFORMS = [
-    { id: 'uber', label: 'Uber', hasComm: true },
+    { id: 'uber', label: 'Uber', hasComm: true, fixedComm: 164.02 },
     { id: 'inDrive', label: 'InDrive', hasComm: false },
     { id: 'yatri', label: 'Yatri Sathi', hasComm: true },
     { id: 'rapido', label: 'Rapido', hasComm: false },
@@ -112,7 +112,16 @@ export default function DriverForm() {
             if (lastRecord.yatri > 0) lastPlatforms.push('yatri');
             if (lastRecord.rapido > 0) lastPlatforms.push('rapido');
             if (lastRecord.offline > 0) lastPlatforms.push('offline');
-            if (lastPlatforms.length > 0) setActivePlatforms(lastPlatforms);
+            if (lastPlatforms.length > 0) {
+                setActivePlatforms(lastPlatforms);
+                // Auto-fill fixed commissions for restored platforms
+                const autoComm = {};
+                lastPlatforms.forEach(pid => {
+                    const plat = ALL_PLATFORMS.find(p => p.id === pid);
+                    if (plat?.fixedComm) autoComm[pid + 'Comm'] = String(plat.fixedComm);
+                });
+                if (Object.keys(autoComm).length > 0) setCommissions(c => ({ ...c, ...autoComm }));
+            }
         }
     }, [driverId, drivers]);
 
@@ -129,9 +138,17 @@ export default function DriverForm() {
 
     // Feature 8: Swipe between drivers
     const togglePlatform = (id) => {
-        setActivePlatforms(prev =>
-            prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-        );
+        setActivePlatforms(prev => {
+            const isRemoving = prev.includes(id);
+            if (!isRemoving) {
+                // Auto-fill fixed commission when platform is activated
+                const plat = ALL_PLATFORMS.find(p => p.id === id);
+                if (plat?.fixedComm) {
+                    setCommissions(c => ({ ...c, [id + 'Comm']: String(plat.fixedComm) }));
+                }
+            }
+            return isRemoving ? prev.filter(p => p !== id) : [...prev, id];
+        });
     };
 
     const switchDriver = (direction) => {
@@ -649,9 +666,13 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
 
                                             {/* Commission */}
                                             {p.hasComm ? (
-                                                <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
-                                                    value={commissions[p.id + 'Comm'] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setCommissions({ ...commissions, [p.id + 'Comm']: val }); }}
-                                                    className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold" />
+                                                <div className="relative">
+                                                    <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0"
+                                                        value={commissions[p.id + 'Comm'] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setCommissions({ ...commissions, [p.id + 'Comm']: val }); }}
+                                                        readOnly={!!p.fixedComm}
+                                                        className={clsx("clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold", p.fixedComm && "bg-violet-50 text-violet-700 border-dashed")} />
+                                                    {p.fixedComm && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[7px] bg-violet-100 text-violet-600 px-1 rounded font-bold">FIXED</span>}
+                                                </div>
                                             ) : (
                                                 <div className="text-center text-slate-300 text-xs">—</div>
                                             )}
