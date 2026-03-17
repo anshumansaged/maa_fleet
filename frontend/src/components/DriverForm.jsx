@@ -34,7 +34,15 @@ export default function DriverForm() {
     // Platforms
     const [activePlatforms, setActivePlatforms] = useState(['uber', 'offline']);
     const [earnings, setEarnings] = useState({});
-    const [commissions, setCommissions] = useState({});
+    const [commissions, setCommissions] = useState(() => {
+        // Auto-fill fixed commissions for default active platforms
+        const initial = {};
+        ['uber', 'offline'].forEach(pid => {
+            const plat = ALL_PLATFORMS.find(p => p.id === pid);
+            if (plat?.fixedComm) initial[pid + 'Comm'] = String(plat.fixedComm);
+        });
+        return initial;
+    });
     const [cash, setCash] = useState({});
 
     // Advanced Tracking
@@ -641,16 +649,29 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                             {/* Earned */}
                                             <div>
                                                 <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
-                                                    value={earnings[p.id] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setEarnings({ ...earnings, [p.id]: val }); setTouched({ ...touched, earnings: true }); }}
+                                                    value={earnings[p.id] || ''} onChange={e => {
+                                                        const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return;
+                                                        setEarnings({ ...earnings, [p.id]: val });
+                                                        setTouched({ ...touched, earnings: true });
+                                                        // Offline: non-preset amounts → cash = earned (cash trip)
+                                                        if (p.id === 'offline' && val && !OFFLINE_PRESETS.includes(parseFloat(val))) {
+                                                            setCash({ ...cash, offlineCash: val });
+                                                        }
+                                                    }}
                                                     className={clsx("clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold", errors[`earn_${p.id}`] && "!border-rose-400")} />
                                                 {p.id === 'offline' && (
                                                     <div className="flex gap-1 mt-1">
                                                         {OFFLINE_PRESETS.map(amt => (
                                                             <button key={amt} type="button"
-                                                                onClick={() => { setEarnings({ ...earnings, offline: String(amt) }); setTouched({ ...touched, earnings: true }); if (navigator.vibrate) navigator.vibrate(10); }}
+                                                                onClick={() => {
+                                                                    setEarnings({ ...earnings, offline: String(amt) });
+                                                                    setCash({ ...cash, offlineCash: '0' }); // Monthly = no cash
+                                                                    setTouched({ ...touched, earnings: true });
+                                                                    if (navigator.vibrate) navigator.vibrate(10);
+                                                                }}
                                                                 className={clsx("px-2 py-0.5 rounded text-[9px] font-bold border transition-all active:scale-95",
-                                                                    String(earnings.offline) === String(amt) ? "bg-brand-600 text-white border-brand-600" : "bg-brand-50 text-brand-600 border-brand-100")}>
-                                                                ₹{amt}
+                                                                    String(earnings.offline) === String(amt) ? "bg-amber-500 text-white border-amber-500" : "bg-amber-50 text-amber-700 border-amber-200")}>
+                                                                ₹{amt}/mo
                                                             </button>
                                                         ))}
                                                     </div>

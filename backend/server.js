@@ -589,6 +589,46 @@ app.get('/api/cashier-balance', async (req, res) => {
   }
 });
 
+// ======================================================================
+// MONTHLY OFFLINE — Track monthly customer receivables
+// ======================================================================
+app.get('/api/monthly-receivables', async (req, res) => {
+  try {
+    // Monthly offline amounts are 730 and 365
+    const monthlyAmounts = [730, 365];
+    const records = await prisma.dailyRecord.findMany({
+      where: { offline: { in: monthlyAmounts } },
+      include: { driver: true },
+      orderBy: { date: 'desc' }
+    });
+
+    const totalReceivable = records.reduce((s, r) => s + r.offline, 0);
+    const byAmount = {};
+    monthlyAmounts.forEach(amt => {
+      const filtered = records.filter(r => r.offline === amt);
+      byAmount[amt] = {
+        count: filtered.length,
+        total: filtered.reduce((s, r) => s + r.offline, 0),
+      };
+    });
+
+    res.json({
+      totalReceivable,
+      recordCount: records.length,
+      byAmount,
+      recentRecords: records.slice(0, 20).map(r => ({
+        id: r.id,
+        driverName: r.driver?.name,
+        amount: r.offline,
+        date: r.date,
+      })),
+    });
+  } catch (error) {
+    console.error("Error fetching monthly receivables:", error);
+    res.status(500).json({ error: 'Failed to fetch monthly receivables' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

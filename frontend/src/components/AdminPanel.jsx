@@ -58,6 +58,9 @@ export default function AdminPanel() {
     const [depositMethod, setDepositMethod] = useState('cash');
     const [depositing, setDepositing] = useState(false);
 
+    // Monthly receivables
+    const [monthlyData, setMonthlyData] = useState(null);
+
     // Misc expense form
     const [showMiscForm, setShowMiscForm] = useState(false);
     const [miscForm, setMiscForm] = useState({ category: 'denting_painting', amount: '', description: '', carNumber: '', driverId: '', date: new Date().toISOString().split('T')[0] });
@@ -68,7 +71,7 @@ export default function AdminPanel() {
     const fetchAll = async () => {
         setLoading(true);
         try {
-            const [ov, ds, rec, misc, drv, settl, cb, cd] = await Promise.all([
+            const [ov, ds, rec, misc, drv, settl, cb, cd, mr] = await Promise.all([
                 axios.get(`${API_URL}/analytics/overview?range=${range}`),
                 axios.get(`${API_URL}/analytics/drivers?range=${range}`),
                 axios.get(`${API_URL}/records?range=${range}`),
@@ -77,6 +80,7 @@ export default function AdminPanel() {
                 axios.get(`${API_URL}/settlements?range=${range}`),
                 axios.get(`${API_URL}/cashier-balance`),
                 axios.get(`${API_URL}/cashier-deposits?range=${range}`),
+                axios.get(`${API_URL}/monthly-receivables`),
             ]);
             setOverview(ov.data);
             setDriverStats(ds.data);
@@ -86,6 +90,7 @@ export default function AdminPanel() {
             setSettlements(settl.data);
             setCashierBalance(cb.data);
             setCashierDeposits(cd.data);
+            setMonthlyData(mr.data);
         } catch (err) { console.error('Fetch failed', err); }
         finally { setLoading(false); }
     };
@@ -304,6 +309,43 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                 <KpiCard title="All Expenses" value={overview?.overallExpenses} icon={<Fuel className="w-5 h-5" />} color="rose" />
                 <KpiCard title="Pending Salary" value={totals.pendingSalary} icon={<AlertCircle className="w-5 h-5" />} color="amber" isWarning={(totals.pendingSalary || 0) > 0} />
             </div>
+
+            {/* Monthly Receivables Card */}
+            {activeTab === 'overview' && monthlyData && monthlyData.totalReceivable > 0 && (
+                <div className="glass-panel p-5 sm:p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 className="text-base font-extrabold text-brand-950 flex items-center gap-2">
+                                <Clock className="w-4 h-4 text-amber-500" /> Monthly Customer Receivables
+                            </h2>
+                            <p className="text-xs text-slate-400 mt-0.5">Offline monthly bookings (₹730/₹365) — pending collection</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-2xl font-black text-amber-600 tabular-nums">{fmt(monthlyData.totalReceivable)}</p>
+                            <p className="text-[10px] font-bold text-slate-400">{monthlyData.recordCount} bookings</p>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 mb-3">
+                        {Object.entries(monthlyData.byAmount).map(([amt, data]) => (
+                            <div key={amt} className="surface-card p-3 flex-1 text-center">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">₹{amt}/month</p>
+                                <p className="text-base font-black text-brand-950 tabular-nums">{fmt(data.total)}</p>
+                                <p className="text-[10px] text-slate-400">{data.count} trips</p>
+                            </div>
+                        ))}
+                    </div>
+                    {monthlyData.recentRecords.length > 0 && (
+                        <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {monthlyData.recentRecords.slice(0, 8).map(r => (
+                                <div key={r.id} className="flex justify-between items-center text-xs py-1 border-b border-brand-50 last:border-0">
+                                    <span className="text-slate-400">{format(new Date(r.date), 'MMM dd')} — <span className="text-brand-950 font-bold capitalize">{r.driverName}</span></span>
+                                    <span className="font-black text-amber-600 tabular-nums">₹{r.amount}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Driver Analytics Table */}
             {(activeTab === 'overview' || activeTab === 'drivers') && <div className="glass-panel overflow-hidden">
