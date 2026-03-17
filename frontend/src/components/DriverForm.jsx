@@ -56,6 +56,9 @@ export default function DriverForm() {
     const [settleAmount, setSettleAmount] = useState('');
     const [settling, setSettling] = useState(false);
 
+    // Feature: Collapsible additional deductions
+    const [showAdditional, setShowAdditional] = useState(false);
+
     // Feature: Post-submit action screen
     const [showPostSubmit, setShowPostSubmit] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -448,7 +451,38 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
     return (
         <>
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 pb-10">
-            <div className="xl:col-span-8">
+            <div className="xl:col-span-8 space-y-4">
+                {/* Sticky Driver Balance Banner */}
+                {selectedDriver && (
+                    <div className={clsx("glass-panel px-4 py-3 flex items-center justify-between",
+                        previousBalance > 0 ? "!border-emerald-200 bg-emerald-50/50" :
+                        previousBalance < 0 ? "!border-amber-200 bg-amber-50/50" : "!border-brand-100")}>
+                        <div className="flex items-center gap-3">
+                            <div className={clsx("w-9 h-9 rounded-full flex items-center justify-center text-sm font-black",
+                                previousBalance > 0 ? "bg-emerald-100 text-emerald-700" :
+                                previousBalance < 0 ? "bg-amber-100 text-amber-700" : "bg-brand-100 text-brand-600")}>
+                                {selectedDriver.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                                <p className="font-bold text-brand-950 capitalize text-sm">{selectedDriver.name}</p>
+                                <p className={clsx("text-xs font-bold",
+                                    previousBalance > 0 ? "text-emerald-600" :
+                                    previousBalance < 0 ? "text-amber-600" : "text-slate-400")}>
+                                    {previousBalance === 0 ? 'All settled' :
+                                     previousBalance > 0 ? `Fleet owes ₹${Math.abs(previousBalance).toFixed(0)}` :
+                                     `Owes fleet ₹${Math.abs(previousBalance).toFixed(0)}`}
+                                </p>
+                            </div>
+                        </div>
+                        {previousBalance !== 0 && (
+                            <button type="button" onClick={() => { setSettleAmount(Math.abs(previousBalance).toFixed(0)); setShowSettleModal(true); }}
+                                className="px-3 py-1.5 rounded-xl text-[11px] font-bold bg-gradient-to-r from-brand-600 to-pink-500 text-white shadow-sm active:scale-95 transition-all">
+                                Settle
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 <form onSubmit={handlePreSubmit} className="glass-panel p-5 sm:p-8 md:p-10 space-y-0">
 
                     {/* Header */}
@@ -458,9 +492,9 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                 <span className="p-2 sm:p-3 bg-gradient-to-br from-brand-100 to-pink-100 rounded-xl sm:rounded-2xl">
                                     <Calculator className="w-5 h-5 sm:w-6 sm:h-6 text-brand-600" />
                                 </span>
-                                Advanced Trip Entry
+                                Daily Shift Entry
                             </h2>
-                            <p className="text-slate-400 mt-1.5 sm:mt-2 text-xs sm:text-sm">Enter detailed trip & financial metrics.</p>
+                            <p className="text-slate-400 mt-1.5 sm:mt-2 text-xs sm:text-sm">{date} — {selectedDriver?.name || 'Select driver'}</p>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="clean-input rounded-2xl px-4 sm:px-5 py-2.5 sm:py-3 text-sm shadow-sm flex-1 sm:flex-initial" required />
@@ -554,184 +588,175 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                         {showError('earnings') && <p className="text-rose-500 text-[10px] font-bold mt-2">{errors.earnings}</p>}
                     </div>
 
-                    {/* Platform Earnings & Cash Inputs */}
+                    {/* Platform Earnings & Cash — Compact Table */}
                     {activePlatformData.length > 0 && (
-                        <div className="py-6 sm:py-8 border-b border-brand-50 space-y-6">
+                        <div className="py-6 sm:py-8 border-b border-brand-50 space-y-4">
                             <div className="flex items-center gap-2">
                                 <Wallet className="w-4 h-4 text-brand-400" />
-                                <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">3. Platform Data</span>
+                                <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">3. Platform Earnings</span>
                             </div>
 
-                            {activePlatformData.map(p => (
-                                <div key={p.id} className="surface-card p-4 sm:p-5">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h4 className="font-extrabold text-brand-700 text-sm sm:text-base">{p.label}</h4>
-                                    </div>
+                            <div className="surface-card p-3 sm:p-4 overflow-x-auto">
+                                {/* Header */}
+                                <div className="grid grid-cols-[1fr_1fr_1fr] sm:grid-cols-[120px_1fr_1fr_1fr] gap-2 sm:gap-3 mb-2 px-1">
+                                    <span className="hidden sm:block text-[10px] font-bold text-slate-400 uppercase">Platform</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Earned (₹)</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Cash (₹)</span>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Comm (₹)</span>
+                                </div>
 
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase">Earned</label>
-                                            <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
-                                                value={earnings[p.id] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setEarnings({ ...earnings, [p.id]: val }); setTouched({ ...touched, earnings: true }); }}
-                                                className={clsx("clean-input w-full rounded-xl px-3 py-3 text-sm font-bold focus:!border-brand-400", errors[`earn_${p.id}`] && "!border-rose-400")} />
-                                            {errors[`earn_${p.id}`] && <p className="text-rose-500 text-[10px] font-bold">{errors[`earn_${p.id}`]}</p>}
-                                            {/* Feature 3: Quick presets for offline */}
-                                            {p.id === 'offline' && (
-                                                <div className="flex gap-1.5 mt-1">
-                                                    {OFFLINE_PRESETS.map(amt => (
-                                                        <button key={amt} type="button"
-                                                            onClick={() => { setEarnings({ ...earnings, offline: String(amt) }); setTouched({ ...touched, earnings: true }); if (navigator.vibrate) navigator.vibrate(10); }}
-                                                            className={clsx("px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all active:scale-95",
-                                                                String(earnings.offline) === String(amt) ? "bg-brand-600 text-white border-brand-600" : "bg-brand-50 text-brand-600 border-brand-100 hover:border-brand-300")}>
-                                                            ₹{amt}
-                                                        </button>
-                                                    ))}
-                                                </div>
+                                {/* Rows */}
+                                {activePlatformData.map(p => {
+                                    const isAutoCash = ['yatri', 'rapido'].includes(p.id);
+                                    return (
+                                        <div key={p.id} className="grid grid-cols-[1fr_1fr_1fr] sm:grid-cols-[120px_1fr_1fr_1fr] gap-2 sm:gap-3 items-center py-2 border-t border-brand-50 first:border-0">
+                                            <div className="hidden sm:flex items-center gap-2">
+                                                <span className="text-xs font-bold text-brand-700">{p.label}</span>
+                                                {isAutoCash && <span className="text-[7px] bg-emerald-100 text-emerald-700 px-1 rounded font-bold">AUTO</span>}
+                                            </div>
+                                            {/* Mobile: show label above first input */}
+                                            <div className="sm:hidden col-span-3 -mb-1">
+                                                <span className="text-[10px] font-bold text-brand-600">{p.label}</span>
+                                            </div>
+
+                                            {/* Earned */}
+                                            <div>
+                                                <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
+                                                    value={earnings[p.id] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setEarnings({ ...earnings, [p.id]: val }); setTouched({ ...touched, earnings: true }); }}
+                                                    className={clsx("clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold", errors[`earn_${p.id}`] && "!border-rose-400")} />
+                                                {p.id === 'offline' && (
+                                                    <div className="flex gap-1 mt-1">
+                                                        {OFFLINE_PRESETS.map(amt => (
+                                                            <button key={amt} type="button"
+                                                                onClick={() => { setEarnings({ ...earnings, offline: String(amt) }); setTouched({ ...touched, earnings: true }); if (navigator.vibrate) navigator.vibrate(10); }}
+                                                                className={clsx("px-2 py-0.5 rounded text-[9px] font-bold border transition-all active:scale-95",
+                                                                    String(earnings.offline) === String(amt) ? "bg-brand-600 text-white border-brand-600" : "bg-brand-50 text-brand-600 border-brand-100")}>
+                                                                ₹{amt}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Cash */}
+                                            <input type="number" min="0" step="1" inputMode="numeric"
+                                                placeholder={isAutoCash ? 'auto' : p.id === 'offline' ? '0' : '0'}
+                                                value={isAutoCash ? (earnings[p.id] || '') : (cash[p.id + 'Cash'] || '')}
+                                                onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; !isAutoCash && setCash({ ...cash, [p.id + 'Cash']: val }); }}
+                                                disabled={isAutoCash}
+                                                className={clsx("clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold",
+                                                    isAutoCash ? "bg-emerald-50 text-emerald-700 border-dashed" : "")} />
+
+                                            {/* Commission */}
+                                            {p.hasComm ? (
+                                                <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
+                                                    value={commissions[p.id + 'Comm'] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setCommissions({ ...commissions, [p.id + 'Comm']: val }); }}
+                                                    className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold" />
+                                            ) : (
+                                                <div className="text-center text-slate-300 text-xs">—</div>
                                             )}
                                         </div>
+                                    );
+                                })}
 
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] items-center flex justify-between font-bold text-slate-400 uppercase">
-                                                Cash Received {['yatri', 'rapido'].includes(p.id) && <span className="text-[8px] bg-emerald-100 text-emerald-700 px-1.5 rounded">Auto</span>}
-                                                {p.id === 'offline' && <span className="text-[8px] bg-amber-100 text-amber-700 px-1.5 rounded">Monthly OK</span>}
-                                            </label>
-                                            <input type="number" min="0" step="0.01" inputMode="decimal" placeholder={p.id === 'offline' ? '0 if monthly' : '0.00'}
-                                                value={['yatri', 'rapido'].includes(p.id) ? (earnings[p.id] || '') : (cash[p.id + 'Cash'] || '')}
-                                                onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; !['yatri', 'rapido'].includes(p.id) && setCash({ ...cash, [p.id + 'Cash']: val }); }}
-                                                disabled={['yatri', 'rapido'].includes(p.id)}
-                                                className={clsx("clean-input w-full rounded-xl px-3 py-3 text-sm font-bold",
-                                                    ['yatri', 'rapido'].includes(p.id) ? "bg-emerald-50 text-emerald-700 border-dashed" : "focus:!border-emerald-400")} />
-                                        </div>
-
-                                        {p.hasComm && (
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-bold text-slate-400 uppercase">Commission</label>
-                                                <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
-                                                    value={commissions[p.id + 'Comm'] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setCommissions({ ...commissions, [p.id + 'Comm']: val }); }}
-                                                    className="clean-input w-full rounded-xl px-3 py-3 text-sm font-bold focus:!border-violet-400" />
-                                            </div>
-                                        )}
-                                    </div>
+                                {/* Totals Row */}
+                                <div className="grid grid-cols-[1fr_1fr_1fr] sm:grid-cols-[120px_1fr_1fr_1fr] gap-2 sm:gap-3 items-center pt-3 mt-2 border-t-2 border-brand-200">
+                                    <span className="hidden sm:block text-xs font-black text-brand-700">Total</span>
+                                    <span className="text-xs font-black text-brand-700 tabular-nums">₹{totalEarnings.toFixed(0)}</span>
+                                    <span className="text-xs font-black text-emerald-600 tabular-nums">₹{totalCash.toFixed(0)}</span>
+                                    <span className="text-xs font-black text-violet-600 tabular-nums">₹{totalCommission.toFixed(0)}</span>
                                 </div>
-                            ))}
+                            </div>
                         </div>
                     )}
 
-                    {/* Expenses & Fuel */}
-                    <div className="py-6 sm:py-8 border-b border-brand-50 space-y-6">
-                        <div className="flex items-center gap-2 mb-4">
+                    {/* Expenses & Fuel — Compact */}
+                    <div className="py-6 sm:py-8 border-b border-brand-50 space-y-4">
+                        <div className="flex items-center gap-2">
                             <Fuel className="w-4 h-4 text-brand-400" />
-                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">4. Expenses & Fuel</span>
+                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">4. Fuel & Deductions</span>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <div className="bg-brand-50/30 border border-brand-100 rounded-2xl p-4 sm:p-5 space-y-3">
-                                <div className="flex justify-between items-center mb-2">
-                                    <h4 className="text-sm font-bold text-slate-700">Fuel Entries</h4>
-                                    <button type="button" onClick={addFuelEntry} className="text-xs font-bold text-brand-600 bg-brand-100 hover:bg-brand-200 px-3 py-1.5 rounded-lg flex items-center gap-1 transition">
-                                        <Plus className="w-3.5 h-3.5" /> Add
-                                    </button>
-                                </div>
-                                {fuelEntries.map((f) => (
-                                    <div key={f.id} className="space-y-2">
-                                        <div className="flex gap-2 items-center">
-                                            <select value={f.type} onChange={e => updateFuelEntry(f.id, 'type', e.target.value)} className="clean-input w-1/3 rounded-xl px-3 py-2 text-sm font-bold bg-white text-slate-600">
-                                                <option value="CNG">CNG</option>
-                                                <option value="Petrol">Petrol</option>
-                                                <option value="EV Charge">EV ⚡</option>
-                                            </select>
-                                            <input type="number" min="0" inputMode="decimal" placeholder="Amount (₹)" value={f.amount}
-                                                onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; updateFuelEntry(f.id, 'amount', val); }}
-                                                className={clsx("clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold focus:!border-rose-400", errors[`fuel_${f.id}`] && "!border-rose-400")} />
-                                            {fuelEntries.length > 1 && (
-                                                <button type="button" onClick={() => removeFuelEntry(f.id)} className="p-2 text-slate-300 hover:text-rose-500 transition hover:bg-rose-50 rounded-xl">
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            )}
-                                        </div>
-                                        {/* Paid By Toggle */}
-                                        <div className="flex items-center gap-1.5 ml-1">
-                                            <span className="text-[10px] font-bold text-slate-400">Paid by:</span>
-                                            <button type="button" onClick={() => updateFuelEntry(f.id, 'paidBy', 'driver')}
-                                                className={clsx("px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border",
-                                                    f.paidBy === 'driver' ? "bg-brand-600 text-white border-brand-600" : "bg-white text-slate-400 border-slate-200 hover:border-brand-300")}>
-                                                Driver
-                                            </button>
-                                            <button type="button" onClick={() => updateFuelEntry(f.id, 'paidBy', 'fleet')}
-                                                className={clsx("px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border",
-                                                    f.paidBy === 'fleet' ? "bg-pink-500 text-white border-pink-500" : "bg-white text-slate-400 border-slate-200 hover:border-pink-300")}>
-                                                Fleet (You)
-                                            </button>
-                                        </div>
+                        {/* Fuel — Inline */}
+                        <div className="surface-card p-3 sm:p-4 space-y-2">
+                            {fuelEntries.map((f) => (
+                                <div key={f.id} className="flex gap-2 items-center">
+                                    <select value={f.type} onChange={e => updateFuelEntry(f.id, 'type', e.target.value)}
+                                        className="clean-input w-24 rounded-lg px-2 py-2.5 text-xs font-bold bg-white text-slate-600">
+                                        <option value="CNG">CNG</option>
+                                        <option value="Petrol">Petrol</option>
+                                        <option value="EV Charge">EV ⚡</option>
+                                    </select>
+                                    <div className="relative flex-1">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">₹</span>
+                                        <input type="number" min="0" inputMode="numeric" placeholder="0" value={f.amount}
+                                            onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; updateFuelEntry(f.id, 'amount', val); }}
+                                            className={clsx("clean-input w-full rounded-lg pl-7 pr-3 py-2.5 text-sm font-bold", errors[`fuel_${f.id}`] && "!border-rose-400")} />
                                     </div>
-                                ))}
-                                <div className="text-right text-xs font-extrabold mt-2 space-y-0.5">
-                                    <p className="text-brand-600">Driver Paid: ₹{driverPaidFuel}</p>
-                                    {fleetPaidFuel > 0 && <p className="text-pink-500">Fleet Paid: ₹{fleetPaidFuel} <span className="text-[10px] text-slate-400">(not from driver cash)</span></p>}
-                                    <p className="text-slate-500">Total Fuel: ₹{totalFuelAll}</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="bg-brand-50/30 border border-brand-100 rounded-2xl p-4 sm:p-5 space-y-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-semibold text-slate-500">Other Miscellaneous Expenses</label>
-                                        <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
-                                            value={expenses.otherExpenses} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, otherExpenses: val }); }}
-                                            className="clean-input w-full rounded-xl px-3 py-3 text-sm font-bold focus:!border-rose-400" />
+                                    <div className="flex gap-1">
+                                        <button type="button" onClick={() => updateFuelEntry(f.id, 'paidBy', f.paidBy === 'driver' ? 'fleet' : 'driver')}
+                                            className={clsx("px-2 py-1.5 rounded-lg text-[9px] font-bold transition-all border whitespace-nowrap",
+                                                f.paidBy === 'driver' ? "bg-brand-600 text-white border-brand-600" : "bg-pink-500 text-white border-pink-500")}>
+                                            {f.paidBy === 'driver' ? 'Driver' : 'Fleet'}
+                                        </button>
                                     </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs font-semibold text-slate-500">Online Payments (Paid via UPI)</label>
-                                        <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0.00"
-                                            value={expenses.onlinePayments} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, onlinePayments: val }); }}
-                                            className="clean-input w-full rounded-xl px-3 py-3 text-sm font-bold focus:!border-amber-400" />
-                                    </div>
+                                    {fuelEntries.length > 1 && (
+                                        <button type="button" onClick={() => removeFuelEntry(f.id)} className="p-1.5 text-slate-300 hover:text-rose-500 transition rounded-lg">
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                    )}
                                 </div>
+                            ))}
+                            <div className="flex items-center justify-between">
+                                <button type="button" onClick={addFuelEntry} className="text-[10px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1">
+                                    <Plus className="w-3 h-3" /> Add fuel entry
+                                </button>
+                                <span className="text-xs font-black text-brand-700 tabular-nums">Total: ₹{totalFuelAll}</span>
                             </div>
                         </div>
+
+                        {/* Other Deductions — Collapsible */}
+                        <button type="button" onClick={() => setShowAdditional(!showAdditional)}
+                            className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-brand-600 transition-colors w-full">
+                            {showAdditional ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            Other Deductions {(v(expenses.otherExpenses) > 0 || onlinePayments > 0) && <span className="text-rose-500">₹{(v(expenses.otherExpenses) + onlinePayments).toFixed(0)}</span>}
+                        </button>
+                        {showAdditional && (
+                            <div className="grid grid-cols-2 gap-3 animate-fadeUp">
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Misc Expenses (₹)</label>
+                                    <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
+                                        value={expenses.otherExpenses} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, otherExpenses: val }); }}
+                                        className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold" />
+                                </div>
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Online / UPI (₹)</label>
+                                    <input type="number" min="0" step="1" inputMode="numeric" placeholder="0"
+                                        value={expenses.onlinePayments} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setExpenses({ ...expenses, onlinePayments: val }); }}
+                                        className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold" />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Section 5: Payment Processing */}
                     <div className="py-6 sm:py-8 border-brand-50 space-y-6">
                         <div className="flex items-center gap-2 mb-4">
                             <ShieldCheck className="w-4 h-4 text-brand-400" />
-                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">5. Payment Processing & Cashier Handover</span>
+                            <span className="text-xs font-bold text-brand-400 uppercase tracking-wider">5. Cash Handover</span>
                         </div>
-
-                        {/* Previous Balance Banner with Settle Button */}
-                        {selectedDriver && previousBalance !== 0 && (
-                            <div className={clsx("flex items-center gap-3 p-4 rounded-2xl border-2 border-dashed mb-2",
-                                previousBalance > 0
-                                    ? "bg-amber-50 border-amber-200 text-amber-700"
-                                    : "bg-emerald-50 border-emerald-200 text-emerald-700")}>
-                                <History className="w-5 h-5 flex-shrink-0" />
-                                <div className="flex-1">
-                                    <p className="text-xs font-bold uppercase tracking-wider opacity-70">Previous Balance</p>
-                                    <p className="text-lg font-black tabular-nums">
-                                        ₹{Math.abs(previousBalance).toFixed(0)}
-                                        <span className="text-sm font-bold ml-1.5 opacity-70">
-                                            {previousBalance > 0 ? 'Fleet Owes Driver' : 'Driver Owes Fleet'}
-                                        </span>
-                                    </p>
-                                </div>
-                                <button type="button" onClick={() => { setSettleAmount(Math.abs(previousBalance).toFixed(0)); setShowSettleModal(true); }}
-                                    className="px-4 py-2 bg-gradient-to-r from-brand-600 to-pink-500 text-white rounded-xl text-xs font-bold shadow-md hover:-translate-y-0.5 active:scale-95 transition-all">
-                                    Settle
-                                </button>
-                            </div>
-                        )}
 
                         <div className="bg-gradient-to-br from-slate-900 to-brand-950 text-white rounded-[2rem] p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
                             <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
                                 <div>
-                                    <p className="text-xs font-bold text-brand-300 uppercase tracking-widest mb-1">Cashier Must Collect</p>
+                                    <p className="text-xs font-bold text-brand-300 uppercase tracking-widest mb-1">Expected from Driver</p>
                                     <p className="text-4xl font-black tabular-nums tracking-tighter text-white">₹{cashInHand.toFixed(0)}</p>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <p className="text-xs font-bold text-amber-300 uppercase tracking-widest">Actual Cash Handover (₹)</p>
+                                    <p className="text-xs font-bold text-amber-300 uppercase tracking-widest">Driver Actually Gave (₹)</p>
                                     <input type="number" value={cashToCashier} onChange={e => setCashToCashier(e.target.value)} placeholder="0.00"
                                         className="w-full bg-white/10 border-2 border-white/20 focus:border-brand-400 rounded-xl px-4 py-3 text-2xl font-black tabular-nums text-white placeholder:text-white/20 transition-colors outline-none" />
                                     <button type="button" onClick={() => { setCashToCashier(cashInHand.toFixed(0)); if (navigator.vibrate) navigator.vibrate(10); }}
@@ -754,37 +779,40 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                 </div>
                             )}
 
-                            {/* Running Balance Summary */}
+                            {/* Running Balance — Vertical Arithmetic */}
                             <div className="border-t border-white/10 pt-5 mt-2">
-                                <div className="flex items-center gap-2 mb-3">
+                                <div className="flex items-center gap-2 mb-4">
                                     <History className="w-4 h-4 text-brand-300" />
                                     <span className="text-xs font-bold text-brand-300 uppercase tracking-widest">Running Balance</span>
                                 </div>
-                                <div className="grid grid-cols-3 gap-3 text-center">
-                                    <div className="bg-white/5 rounded-xl p-3">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Previous</p>
-                                        <p className={clsx("text-lg font-black tabular-nums", previousBalance < 0 ? "text-amber-300" : previousBalance > 0 ? "text-emerald-300" : "text-white/50")}>
+                                <div className="space-y-2 max-w-xs mx-auto">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-400 font-medium">Previous Balance</span>
+                                        <span className={clsx("text-base font-black tabular-nums", previousBalance < 0 ? "text-amber-300" : previousBalance > 0 ? "text-emerald-300" : "text-white/50")}>
                                             ₹{Math.abs(previousBalance).toFixed(0)}
-                                        </p>
+                                            <span className="text-[9px] font-bold ml-1 opacity-70">{previousBalance > 0 ? '(Fleet owes)' : previousBalance < 0 ? '(Driver owes)' : ''}</span>
+                                        </span>
                                     </div>
-                                    <div className="bg-white/5 rounded-xl p-3">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Today</p>
-                                        <p className={clsx("text-lg font-black tabular-nums", todayDifference < 0 ? "text-amber-300" : todayDifference > 0 ? "text-emerald-300" : "text-white/50")}>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-400 font-medium">{todayDifference >= 0 ? '+ Today (overpaid)' : '− Today (underpaid)'}</span>
+                                        <span className={clsx("text-base font-black tabular-nums", todayDifference < 0 ? "text-amber-300" : todayDifference > 0 ? "text-emerald-300" : "text-white/50")}>
                                             {todayDifference >= 0 ? '+' : '−'}₹{Math.abs(todayDifference).toFixed(0)}
-                                        </p>
+                                        </span>
                                     </div>
-                                    <div className={clsx("rounded-xl p-3", newTotalBalance < 0 ? "bg-amber-500/20" : newTotalBalance > 0 ? "bg-emerald-500/20" : "bg-white/10")}>
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">New Total</p>
-                                        <p className={clsx("text-lg font-black tabular-nums", newTotalBalance < 0 ? "text-amber-300" : newTotalBalance > 0 ? "text-emerald-300" : "text-white")}>
-                                            ₹{Math.abs(newTotalBalance).toFixed(0)}
+                                    <div className="border-t border-white/20 pt-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs text-white font-bold">New Balance</span>
+                                            <span className={clsx("text-xl font-black tabular-nums", newTotalBalance < 0 ? "text-amber-300" : newTotalBalance > 0 ? "text-emerald-300" : "text-white")}>
+                                                ₹{Math.abs(newTotalBalance).toFixed(0)}
+                                            </span>
+                                        </div>
+                                        <p className={clsx("text-right text-[11px] font-bold mt-0.5",
+                                            newTotalBalance < 0 ? "text-amber-400" : newTotalBalance > 0 ? "text-emerald-400" : "text-white/50")}>
+                                            {newTotalBalance < 0 ? 'Driver owes Fleet' :
+                                                newTotalBalance > 0 ? 'Fleet owes Driver' : 'Fully Settled ✓'}
                                         </p>
                                     </div>
                                 </div>
-                                <p className={clsx("text-center text-xs font-bold mt-2",
-                                    newTotalBalance < 0 ? "text-amber-400" : newTotalBalance > 0 ? "text-emerald-400" : "text-white/50")}>
-                                    {newTotalBalance < 0 ? `Driver owes Fleet ₹${Math.abs(newTotalBalance).toFixed(0)}` :
-                                        newTotalBalance > 0 ? `Fleet owes Driver ₹${Math.abs(newTotalBalance).toFixed(0)}` : 'Fully Settled ✓'}
-                                </p>
                             </div>
 
                             <button type="submit" disabled={submitting || !driverId || !carNumber}
@@ -799,8 +827,8 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                 </form>
             </div>
 
-            {/* SIDEBAR */}
-            <div className="xl:col-span-4">
+            {/* SIDEBAR — Desktop only */}
+            <div className="hidden xl:block xl:col-span-4">
                 <div className="xl:sticky xl:top-28 space-y-6">
                     {/* Numbers Summary */}
                     <div className="glass-panel p-6 space-y-5">

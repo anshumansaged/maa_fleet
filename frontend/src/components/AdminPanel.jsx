@@ -45,6 +45,9 @@ export default function AdminPanel() {
     const [batchSettling, setBatchSettling] = useState(false);
     const [copied, setCopied] = useState(false);
 
+    // Admin tabs
+    const [activeTab, setActiveTab] = useState('overview');
+
     // Misc expense form
     const [showMiscForm, setShowMiscForm] = useState(false);
     const [miscForm, setMiscForm] = useState({ category: 'denting_painting', amount: '', description: '', carNumber: '', driverId: '', date: new Date().toISOString().split('T')[0] });
@@ -242,7 +245,26 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                 </div>
             </div>
 
-            {/* KPI Cards */}
+            {/* Tab Navigation */}
+            <div className="flex gap-1 p-1 bg-white/60 backdrop-blur-xl rounded-full border border-white/80 shadow-sm w-fit">
+                {[
+                    { key: 'overview', label: 'Overview' },
+                    { key: 'drivers', label: 'Drivers' },
+                    { key: 'cashier', label: 'Cashier' },
+                    { key: 'expenses', label: 'Expenses' },
+                    { key: 'ledger', label: 'Ledger' },
+                ].map(t => (
+                    <button key={t.key} onClick={() => setActiveTab(t.key)}
+                        className={clsx("px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300",
+                            activeTab === t.key
+                                ? "bg-brand-600 text-white shadow-md shadow-brand-500/25"
+                                : "text-slate-400 hover:text-brand-600")}>
+                        {t.label}
+                    </button>
+                ))}
+            </div>
+
+            {/* KPI Cards — Always visible */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
                 <KpiCard title="Gross Revenue" value={totals.totalEarnings} icon={<TrendingUp className="w-5 h-5" />} color="emerald" />
                 <KpiCard title="Net Profit" value={overview?.overallProfit} icon={<ArrowUpRight className="w-5 h-5" />} color="brand" highlight />
@@ -252,7 +274,7 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
             </div>
 
             {/* Driver Analytics Table */}
-            <div className="glass-panel overflow-hidden">
+            {(activeTab === 'overview' || activeTab === 'drivers') && <div className="glass-panel overflow-hidden">
                 <div className="p-6 border-b border-brand-100">
                     <h2 className="text-lg font-extrabold text-brand-950 flex items-center gap-2">
                         <User className="w-5 h-5 text-brand-400" /> Driver-wise Breakdown
@@ -298,7 +320,7 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                                         {d.totalKm || 0}
                                     </td>
                                     <td className="px-4 py-4 text-right tabular-nums font-black text-emerald-600">
-                                        ₹{fmt(d.cashToCashier || 0)}
+                                        {fmt(d.cashToCashier || 0)}
                                     </td>
                                 </tr>
                             ))}
@@ -308,10 +330,10 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </div>}
 
             {/* Feature 7: Driver Comparison Charts */}
-            {driverStats.length > 0 && (() => {
+            {activeTab === 'overview' && driverStats.length > 0 && (() => {
                 const maxEarnings = Math.max(...driverStats.map(d => d.totalEarnings || 0), 1);
                 const maxProfit = Math.max(...driverStats.map(d => Math.abs(d.profit || 0)), 1);
                 const maxKm = Math.max(...driverStats.map(d => d.totalKm || 0), 1);
@@ -425,7 +447,7 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
             })()}
 
             {/* Central Cashier / Ledger Section */}
-            <div className="glass-panel overflow-hidden">
+            {activeTab === 'cashier' && <div className="glass-panel overflow-hidden">
                 <div className="p-6 border-b border-brand-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 className="text-lg font-extrabold text-brand-950 flex items-center gap-2">
@@ -510,10 +532,10 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </div>}
 
             {/* Miscellaneous Expenses Section */}
-            <div className="glass-panel overflow-hidden">
+            {activeTab === 'expenses' && <div className="glass-panel overflow-hidden">
                 <div className="p-6 border-b border-brand-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 className="text-lg font-extrabold text-brand-950 flex items-center gap-2">
@@ -640,10 +662,10 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </div>}
 
             {/* Transaction Ledger */}
-            <div className="glass-panel overflow-hidden">
+            {activeTab === 'ledger' && <div className="glass-panel overflow-hidden">
                 <div className="p-6 border-b border-brand-100">
                     <h2 className="text-lg font-extrabold text-brand-950">Daily Transaction Ledger</h2>
                 </div>
@@ -688,7 +710,7 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </div>}
 
             {/* Modal for Settle */}
             {showSettleModal && settleDriver && (
