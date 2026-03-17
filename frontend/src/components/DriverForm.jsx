@@ -676,6 +676,9 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                                         ))}
                                                     </div>
                                                 )}
+                                                {p.id === 'offline' && OFFLINE_PRESETS.includes(parseFloat(earnings.offline)) && (
+                                                    <p className="text-[8px] text-amber-500 font-bold mt-0.5">Monthly — customer pays owner later</p>
+                                                )}
                                             </div>
 
                                             {/* Cash */}
@@ -799,31 +802,42 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
                                 <div>
-                                    <p className="text-xs font-bold text-brand-300 uppercase tracking-widest mb-1">Expected from Driver</p>
-                                    <p className="text-4xl font-black tabular-nums tracking-tighter text-white">₹{cashInHand.toFixed(0)}</p>
+                                    {cashInHand >= 0 ? (
+                                        <>
+                                            <p className="text-xs font-bold text-brand-300 uppercase tracking-widest mb-1">Collect from Driver</p>
+                                            <p className="text-4xl font-black tabular-nums tracking-tighter text-white">₹{cashInHand.toFixed(0)}</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p className="text-xs font-bold text-rose-400 uppercase tracking-widest mb-1">Pay Driver</p>
+                                            <p className="text-4xl font-black tabular-nums tracking-tighter text-rose-300">₹{Math.abs(cashInHand).toFixed(0)}</p>
+                                            <p className="text-[10px] text-rose-300/70 mt-1">Salary exceeds cash — cashier pays the difference</p>
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className="space-y-2">
-                                    <p className="text-xs font-bold text-amber-300 uppercase tracking-widest">Driver Actually Gave (₹)</p>
-                                    <input type="number" value={cashToCashier} onChange={e => setCashToCashier(e.target.value)} placeholder="0.00"
+                                    <p className="text-xs font-bold text-amber-300 uppercase tracking-widest">
+                                        {cashInHand >= 0 ? 'Driver Gave (₹)' : 'Cashier Paid Driver (₹)'}
+                                    </p>
+                                    <input type="number" value={cashToCashier} onChange={e => setCashToCashier(e.target.value)} placeholder="0"
                                         className="w-full bg-white/10 border-2 border-white/20 focus:border-brand-400 rounded-xl px-4 py-3 text-2xl font-black tabular-nums text-white placeholder:text-white/20 transition-colors outline-none" />
                                     <button type="button" onClick={() => { setCashToCashier(cashInHand.toFixed(0)); if (navigator.vibrate) navigator.vibrate(10); }}
-                                        className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-white/15 text-white/80 border border-white/20 hover:bg-white/25 transition-all active:scale-95">
-                                        Exact ₹{cashInHand.toFixed(0)}
+                                        className={clsx("px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all active:scale-95",
+                                            cashInHand >= 0 ? "bg-white/15 text-white/80 border-white/20 hover:bg-white/25" : "bg-rose-500/30 text-rose-200 border-rose-400/30 hover:bg-rose-500/40")}>
+                                        {cashInHand >= 0 ? `Exact ₹${cashInHand.toFixed(0)}` : `Pay ₹${Math.abs(cashInHand).toFixed(0)}`}
                                     </button>
                                 </div>
                             </div>
 
-                            {v(cashToCashier) > 0 && (
+                            {v(cashToCashier) !== 0 && (
                                 <div className={clsx("p-4 rounded-xl text-center text-sm font-bold border",
                                     todayDifference < 0 ? "bg-amber-500/20 text-amber-300 border-amber-500/30" :
                                         todayDifference > 0 ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" :
                                             "bg-white/10 text-brand-200 border-white/20")}>
-                                    {todayDifference < 0
-                                        ? `Driver still owes ₹${Math.abs(todayDifference).toFixed(2)} for today`
-                                        : todayDifference > 0
-                                            ? `Driver gave ₹${Math.abs(todayDifference).toFixed(2)} extra (Fleet Owes)`
-                                            : "Perfectly Settled Today!"}
+                                    {todayDifference === 0 ? "Perfectly Settled Today!" :
+                                        todayDifference > 0 ? `Fleet owes Driver ₹${Math.abs(todayDifference).toFixed(0)} (overpaid)` :
+                                        `Driver owes Fleet ₹${Math.abs(todayDifference).toFixed(0)}`}
                                 </div>
                             )}
 
@@ -897,7 +911,7 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                             <Row label="Online Pay" value={onlinePayments} negative dim />
                         </Section>
                         <Section title="Final Calculation">
-                            <Row label="Cash To Collect" value={cashInHand} highlight />
+                            <Row label={cashInHand >= 0 ? "Cash To Collect" : "Pay Driver"} value={Math.abs(cashInHand)} highlight warning={cashInHand < 0} />
                             <Row label="Actual Received" value={v(cashToCashier)} />
                         </Section>
                         <Section title="Running Balance">
@@ -1023,7 +1037,7 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                             <ConfirmRow label="Driver Salary" value={`₹${driverSalary.toFixed(0)}`} />
                             <ConfirmRow label="Total Expenses" value={`₹${totalExpenses.toFixed(0)}`} />
                             <div className="h-px bg-brand-100"></div>
-                            <ConfirmRow label="Cash To Collect" value={`₹${cashInHand.toFixed(0)}`} highlight />
+                            <ConfirmRow label={cashInHand >= 0 ? "Cash To Collect" : "Pay Driver"} value={`₹${Math.abs(cashInHand).toFixed(0)}`} highlight />
                             <ConfirmRow label="Cash Received" value={`₹${v(cashToCashier).toFixed(0)}`} />
                             <div className="h-px bg-brand-100"></div>
                             <ConfirmRow label="New Balance" value={`₹${Math.abs(newTotalBalance).toFixed(0)} (${balanceLabel(newTotalBalance)})`} highlight />
