@@ -54,7 +54,7 @@ app.post('/api/drivers', async (req, res) => {
       data: {
         name,
         phone,
-        salaryPercentage: salaryPercentage !== undefined ? parseFloat(salaryPercentage) : 0.40,
+        salaryPercentage: salaryPercentage !== undefined ? parseFloat(salaryPercentage) : 0.35,
       },
     });
     res.status(201).json(driver);

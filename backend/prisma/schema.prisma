@@ -11,8 +11,8 @@ model Driver {
   id               String        @id @default(uuid())
   name             String
   phone            String?
-  // User keeps x% (default 0.40 = 40%)
-  salaryPercentage Float         @default(0.40)
+  // User keeps x% (default 0.35 = 35%)
+  salaryPercentage Float         @default(0.35)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Fuel, AlertCircle, TrendingUp, Wallet, CheckCircle2, Clock, BarChart3, ArrowUpRight, ArrowDownRight, Plus, X, Wrench, FileText, Shield, CircleDollarSign, User, Car, Trash2 } from 'lucide-react';
+import { Fuel, AlertCircle, TrendingUp, Wallet, CheckCircle2, Clock, BarChart3, ArrowUpRight, ArrowDownRight, Plus, X, Wrench, FileText, Shield, CircleDollarSign, User, Car, Trash2, Send, Copy } from 'lucide-react';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
@@ -39,8 +39,11 @@ export default function AdminPanel() {
     const [showSettleModal, setShowSettleModal] = useState(false);
     const [settleDriver, setSettleDriver] = useState(null);
     const [settleAmount, setSettleAmount] = useState('');
-    const [settleCashierName, setSettleCashierName] = useState('');
+    const [settleCashierName, setSettleCashierName] = useState(() => localStorage.getItem('maafleet_cashier_name') || '');
     const [settling, setSettling] = useState(false);
+    const [settleSuccess, setSettleSuccess] = useState(null); // { driverName, amount, newBalance }
+    const [batchSettling, setBatchSettling] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     // Misc expense form
     const [showMiscForm, setShowMiscForm] = useState(false);
@@ -80,12 +83,81 @@ export default function AdminPanel() {
                 amount: amt,
                 cashierName: settleCashierName
             });
+            localStorage.setItem('maafleet_cashier_name', settleCashierName);
+            const newBalance = settleDriver.currentBalance + amt;
+            setSettleSuccess({
+                driverName: settleDriver.name,
+                amount: Math.abs(parseFloat(settleAmount)),
+                action: settleDriver.currentBalance > 0 ? 'Fleet paid' : 'Driver paid',
+                newBalance
+            });
             setShowSettleModal(false);
             setSettleAmount('');
-            setSettleCashierName('');
             fetchAll();
         } catch (err) { alert("Failed to settle"); }
         finally { setSettling(false); }
+    };
+
+    const handleBatchSettleAll = async () => {
+        const unsettled = drivers.filter(d => d.currentBalance !== 0);
+        if (unsettled.length === 0) return;
+        if (!window.confirm(`Settle all ${unsettled.length} drivers? This will create a settlement record for each.`)) return;
+        const cashier = settleCashierName || localStorage.getItem('maafleet_cashier_name') || 'Admin';
+        setBatchSettling(true);
+        try {
+            await Promise.all(unsettled.map(d => {
+                const amt = d.currentBalance > 0 ? -Math.abs(d.currentBalance) : Math.abs(d.currentBalance);
+                return axios.post(`${API_URL}/settlements`, {
+                    driverId: d.id, amount: amt, cashierName: cashier
+                });
+            }));
+            fetchAll();
+        } catch (err) { alert("Some settlements failed"); }
+        finally { setBatchSettling(false); }
+    };
+
+    const getSettlementWhatsApp = (driverName, amount, action, newBalance) => {
+        const balLabel = newBalance > 0 ? 'Fleet Owes Driver' : newBalance < 0 ? 'Driver Owes Fleet' : 'Settled';
+        return encodeURIComponent(`*💰 MAA FLEET - SETTLEMENT*
+━━━━━━━━━━━━━━━━
+👤 *Driver:* ${driverName}
+📅 *Date:* ${new Date().toLocaleDateString('en-IN')}
+💸 *${action}:* ₹${amount.toFixed(0)}
+💳 *New Balance:* ₹${Math.abs(newBalance).toFixed(0)} (${balLabel})
+━━━━━━━━━━━━━━━━`);
+    };
+
+    const generateAdminSummaryMessage = () => {
+        if (!overview || driverStats.length === 0) return '';
+        const totals = overview?.totals || {};
+        const rangeLabel = TIME_RANGES.find(t => t.key === range)?.label || range;
+        return encodeURIComponent(`*📊 MAA FLEET - ${rangeLabel.toUpperCase()} SUMMARY*
+━━━━━━━━━━━━━━━━━━━
+📅 *Period:* ${rangeLabel} | Records: ${overview.recordCount}
+
+*💰 OVERVIEW*
+▹ Gross Revenue: ₹${(totals.totalEarnings || 0).toFixed(0)}
+▹ Net Profit: ₹${(overview.overallProfit || 0).toFixed(0)}
+▹ Cash Collected: ₹${(totals.totalCash || 0).toFixed(0)}
+▹ Total Expenses: ₹${(overview.overallExpenses || 0).toFixed(0)}
+
+*👤 PER DRIVER*
+${driverStats.map(d => `▹ ${d.name}: Earned ₹${d.totalEarnings.toFixed(0)} | Profit ₹${d.profit.toFixed(0)} | ${d.trips} trips`).join('\n')}
+
+*💳 PENDING BALANCES*
+${drivers.filter(d => d.currentBalance !== 0).map(d => {
+            const label = d.currentBalance > 0 ? 'Fleet Owes' : 'Driver Owes';
+            return `▹ ${d.name}: ₹${Math.abs(d.currentBalance).toFixed(0)} (${label})`;
+        }).join('\n') || 'All settled ✓'}
+━━━━━━━━━━━━━━━━━━━`);
+    };
+
+    const handleCopyAdminSummary = async () => {
+        try {
+            await navigator.clipboard.writeText(decodeURIComponent(generateAdminSummaryMessage()));
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch { alert('Failed to copy'); }
     };
 
     const handleMiscSubmit = async (e) => {
@@ -145,7 +217,7 @@ export default function AdminPanel() {
             </div>
 
             {/* Time Range Selector */}
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {TIME_RANGES.map(t => (
                     <button key={t.key} onClick={() => setRange(t.key)}
                         className={clsx("px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300 border-2 active:scale-95",
@@ -156,6 +228,18 @@ export default function AdminPanel() {
                         {t.label}
                     </button>
                 ))}
+                <div className="flex gap-1.5 ml-auto">
+                    <button onClick={() => window.open(`https://wa.me/?text=${generateAdminSummaryMessage()}`, '_blank')}
+                        className="px-3 py-1.5 sm:py-2 rounded-full text-xs font-bold bg-emerald-500 text-white hover:bg-emerald-600 transition-all active:scale-95 flex items-center gap-1.5"
+                        title="Share summary on WhatsApp">
+                        <Send className="w-3.5 h-3.5" /> Share
+                    </button>
+                    <button onClick={handleCopyAdminSummary}
+                        className="px-3 py-1.5 sm:py-2 rounded-full text-xs font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-all active:scale-95 flex items-center gap-1.5"
+                        title="Copy summary">
+                        <Copy className="w-3.5 h-3.5" /> {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                </div>
             </div>
 
             {/* KPI Cards */}
@@ -342,11 +426,19 @@ export default function AdminPanel() {
 
             {/* Central Cashier / Ledger Section */}
             <div className="glass-panel overflow-hidden">
-                <div className="p-6 border-b border-brand-100">
-                    <h2 className="text-lg font-extrabold text-brand-950 flex items-center gap-2">
-                        <Wallet className="w-5 h-5 text-emerald-500" /> Central Cashier Ledger
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-1">Settle outstanding balances with drivers. Positive balance means Fleet owes Driver. Negative means Driver owes Fleet.</p>
+                <div className="p-6 border-b border-brand-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 className="text-lg font-extrabold text-brand-950 flex items-center gap-2">
+                            <Wallet className="w-5 h-5 text-emerald-500" /> Central Cashier Ledger
+                        </h2>
+                        <p className="text-xs text-slate-400 mt-1">Positive = Fleet owes Driver. Negative = Driver owes Fleet.</p>
+                    </div>
+                    {drivers.some(d => d.currentBalance !== 0) && (
+                        <button onClick={handleBatchSettleAll} disabled={batchSettling}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold bg-gradient-to-r from-brand-600 to-pink-500 text-white shadow-md shadow-brand-500/20 hover:-translate-y-0.5 active:scale-95 transition-all disabled:opacity-50">
+                            {batchSettling ? 'Settling...' : <><CheckCircle2 className="w-4 h-4" /> Settle All</>}
+                        </button>
+                    )}
                 </div>
 
                 {/* Active Balances */}
@@ -634,6 +726,39 @@ export default function AdminPanel() {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {/* Settlement Success Modal */}
+            {settleSuccess && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl p-6 sm:p-8 animate-scaleIn">
+                        <div className="text-center mb-6">
+                            <div className="mx-auto w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3">
+                                <CheckCircle2 className="w-7 h-7" />
+                            </div>
+                            <h2 className="text-xl font-extrabold text-brand-950">Settlement Done!</h2>
+                            <p className="text-sm text-slate-500 mt-1">
+                                {settleSuccess.action} <span className="font-bold capitalize">{settleSuccess.driverName}</span> ₹{settleSuccess.amount.toFixed(0)}
+                            </p>
+                            <p className="text-xs text-slate-400 mt-1">
+                                New Balance: ₹{Math.abs(settleSuccess.newBalance).toFixed(0)}
+                                {settleSuccess.newBalance !== 0 && ` (${settleSuccess.newBalance > 0 ? 'Fleet Owes' : 'Driver Owes'})`}
+                                {settleSuccess.newBalance === 0 && ' (Fully Settled)'}
+                            </p>
+                        </div>
+                        <div className="space-y-3">
+                            <button type="button"
+                                onClick={() => window.open(`https://wa.me/?text=${getSettlementWhatsApp(settleSuccess.driverName, settleSuccess.amount, settleSuccess.action, settleSuccess.newBalance)}`, '_blank')}
+                                className="w-full py-3.5 rounded-2xl font-bold bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 hover:-translate-y-0.5 transition-transform active:scale-95 flex justify-center items-center gap-2">
+                                <Send className="w-4 h-4" /> Share on WhatsApp
+                            </button>
+                            <button type="button" onClick={() => setSettleSuccess(null)}
+                                className="w-full py-2.5 rounded-2xl font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors text-sm">
+                                Close
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

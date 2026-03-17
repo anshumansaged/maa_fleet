@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Calculator, User, Wallet, Fuel, Send, Sparkles, Car, ToggleLeft, Plus, Trash2, ShieldCheck, Route, History, AlertTriangle, CheckCircle2, X, Banknote, ClipboardList, Info, ChevronDown, ChevronUp, Gauge, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
+import { Calculator, User, Wallet, Fuel, Send, Sparkles, Car, ToggleLeft, Plus, Trash2, ShieldCheck, Route, History, AlertTriangle, CheckCircle2, X, Banknote, ClipboardList, Info, ChevronDown, ChevronUp, Gauge, ChevronLeft, ChevronRight, Zap, Copy, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
@@ -55,6 +55,10 @@ export default function DriverForm() {
     const [showSettleModal, setShowSettleModal] = useState(false);
     const [settleAmount, setSettleAmount] = useState('');
     const [settling, setSettling] = useState(false);
+
+    // Feature: Post-submit action screen
+    const [showPostSubmit, setShowPostSubmit] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     // Feature: Daily summary
     const [showDailySummary, setShowDailySummary] = useState(false);
@@ -251,6 +255,91 @@ ${activePlatforms.map(p => {
 ━━━━━━━━━━━━━━━━━━━`);
     };
 
+    const getWhatsAppPlainText = () => {
+        const dName = selectedDriver?.name || 'Unknown';
+        return `*🚗 MAA FLEET - SHIFT REPORT*
+━━━━━━━━━━━━━━━━━━━
+🗓️ *Date:* ${date}
+👤 *Driver:* *${dName.charAt(0).toUpperCase() + dName.slice(1)}*
+🛣️ *Distance:* ${totalKm} km (${tStartKm} - ${tEndKm})
+
+*🟢 EARNINGS*
+${activePlatforms.map(p => {
+            const plat = ALL_PLATFORMS.find(x => x.id === p);
+            return `▹ ${plat.label}: ₹${v(earnings[p])}`;
+        }).join('\n')}
+*Gross Total: ₹${totalEarnings}*
+
+*🔴 DEDUCTIONS*
+▹ Fuel (Driver): ₹${driverPaidFuel}${fleetPaidFuel > 0 ? `\n▹ Fuel (Fleet): ₹${fleetPaidFuel} (no deduction)` : ''}
+▹ Commission: ₹${totalCommission}
+▹ Other Exp: ₹${v(expenses.otherExpenses)}
+▹ Online Pay: ₹${onlinePayments}
+
+*💵 PAYOUT SUMMARY*
+▹ Driver Salary (${(driverPercentage * 100).toFixed(0)}%): ₹${driverSalary.toFixed(0)}
+▹ Cash to Handover: ₹${v(cashToCashier).toFixed(0)}
+
+*💳 ACCOUNT BALANCE*
+▹ Previous: ₹${Math.abs(previousBalance).toFixed(0)} (${balanceLabel(previousBalance)})
+▹ Today Net: ${todayDifference >= 0 ? '+' : ''}₹${todayDifference.toFixed(0)}
+*Final Balance: ₹${Math.abs(newTotalBalance).toFixed(0)} (${balanceLabel(newTotalBalance)})*
+
+*💡 HOW IT WORKS / ये कैसे काम करता है?*
+• *Net Earning (कुल कमाई):*
+  ₹${totalEarnings} (Gross) - ₹${totalCommission} (Comm) = ₹${netEarnings.toFixed(0)}
+• *Your Salary (आपकी पगार):*
+  ₹${netEarnings.toFixed(0)} × ${(driverPercentage * 100).toFixed(0)}% = ₹${driverSalary.toFixed(0)}
+• *Cash Handover (आपको मालिक को देने हैं):*
+  ₹${totalCash.toFixed(0)} (Cash Rcvd) - ₹${driverPaidFuel} (Fuel) - ₹${v(expenses.otherExpenses)} (Exp) - ₹${onlinePayments} (Online) - ₹${driverSalary.toFixed(0)} (Salary) = ₹${v(cashToCashier).toFixed(0)}
+━━━━━━━━━━━━━━━━━━━`;
+    };
+
+    const handleCopyReport = async () => {
+        try {
+            await navigator.clipboard.writeText(getWhatsAppPlainText());
+            setCopied(true);
+            if (navigator.vibrate) navigator.vibrate([30, 20, 30]);
+            setTimeout(() => setCopied(false), 2000);
+        } catch { alert('Failed to copy'); }
+    };
+
+    const handleNextDriver = () => {
+        const currentIdx = drivers.findIndex(d => d.id === driverId);
+        // Find next driver who doesn't have a record for today
+        for (let i = 1; i <= drivers.length; i++) {
+            const nextIdx = (currentIdx + i) % drivers.length;
+            const nextDriver = drivers[nextIdx];
+            // Check if this driver has a record for today already (from recent records)
+            const hasToday = nextDriver.records?.some(r => {
+                const recDate = new Date(r.date).toISOString().split('T')[0];
+                return recDate === date;
+            });
+            if (!hasToday) {
+                setDriverId(nextDriver.id);
+                break;
+            }
+        }
+        // Reset form
+        setEarnings({}); setCommissions({}); setCash({});
+        setCashToCashier(''); setEndKm('');
+        setFuelEntries([{ id: Date.now(), amount: '', type: 'CNG', paidBy: 'driver' }]);
+        setExpenses({ otherExpenses: '', onlinePayments: '' });
+        setDuplicateWarning(null); setErrors({}); setTouched({});
+        setShowPostSubmit(false);
+        if (navigator.vibrate) navigator.vibrate(15);
+    };
+
+    const handleClosePostSubmit = () => {
+        // Reset form
+        setEarnings({}); setCommissions({}); setCash({});
+        setCashToCashier(''); setEndKm('');
+        setFuelEntries([{ id: Date.now(), amount: '', type: 'CNG', paidBy: 'driver' }]);
+        setExpenses({ otherExpenses: '', onlinePayments: '' });
+        setDuplicateWarning(null); setErrors({}); setTouched({});
+        setShowPostSubmit(false);
+    };
+
     // Feature 5: Daily Summary
     const fetchDailySummary = async () => {
         setLoadingSummary(true);
@@ -316,15 +405,8 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
             setSuccess(true);
             // Feature 9: Haptic success
             if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
-            window.open(`https://wa.me/?text=${generateWhatsAppMessage()}`, '_blank');
+            setShowPostSubmit(true);
             setTimeout(() => setSuccess(false), 3000);
-
-            // Reset
-            setEarnings({}); setCommissions({}); setCash({});
-            setCashToCashier(''); setEndKm('');
-            setFuelEntries([{ id: Date.now(), amount: '', type: 'CNG', paidBy: 'driver' }]);
-            setExpenses({ otherExpenses: '', onlinePayments: '' });
-            setDuplicateWarning(null); setErrors({}); setTouched({});
 
             fetchDrivers();
         } catch (error) {
@@ -340,7 +422,7 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
         if (!settleAmount || !selectedDriver) return;
         setSettling(true);
         try {
-            const direction = previousBalance > 0 ? 'driver_pays' : 'fleet_pays';
+            const direction = previousBalance > 0 ? 'fleet_pays' : 'driver_pays';
             await axios.post(`${API_URL}/quick-settle`, {
                 driverId: selectedDriver.id,
                 amount: parseFloat(settleAmount),
@@ -628,7 +710,7 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                     <p className="text-lg font-black tabular-nums">
                                         ₹{Math.abs(previousBalance).toFixed(0)}
                                         <span className="text-sm font-bold ml-1.5 opacity-70">
-                                            {previousBalance > 0 ? 'Driver Owes Fleet' : 'Fleet Owes Driver'}
+                                            {previousBalance > 0 ? 'Fleet Owes Driver' : 'Driver Owes Fleet'}
                                         </span>
                                     </p>
                                 </div>
@@ -652,6 +734,10 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                     <p className="text-xs font-bold text-amber-300 uppercase tracking-widest">Actual Cash Handover (₹)</p>
                                     <input type="number" value={cashToCashier} onChange={e => setCashToCashier(e.target.value)} placeholder="0.00"
                                         className="w-full bg-white/10 border-2 border-white/20 focus:border-brand-400 rounded-xl px-4 py-3 text-2xl font-black tabular-nums text-white placeholder:text-white/20 transition-colors outline-none" />
+                                    <button type="button" onClick={() => { setCashToCashier(cashInHand.toFixed(0)); if (navigator.vibrate) navigator.vibrate(10); }}
+                                        className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-white/15 text-white/80 border border-white/20 hover:bg-white/25 transition-all active:scale-95">
+                                        Exact ₹{cashInHand.toFixed(0)}
+                                    </button>
                                 </div>
                             </div>
 
@@ -739,12 +825,12 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                             <Row label="Actual Received" value={v(cashToCashier)} />
                         </Section>
                         <Section title="Running Balance">
-                            <Row label="Previous" value={Math.abs(previousBalance)} warning={previousBalance > 0} />
-                            <Row label="Today's Change" value={Math.abs(todayDifference)} warning={todayDifference > 0} />
+                            <Row label="Previous" value={Math.abs(previousBalance)} warning={previousBalance < 0} />
+                            <Row label="Today's Change" value={Math.abs(todayDifference)} warning={todayDifference < 0} />
                             <div className="h-px bg-brand-100 my-1"></div>
-                            <Row label="New Total" value={Math.abs(newTotalBalance)} highlight warning={newTotalBalance > 0} />
-                            <p className={clsx("text-[10px] font-bold text-center mt-1", newTotalBalance > 0 ? "text-amber-600" : newTotalBalance < 0 ? "text-emerald-600" : "text-slate-400")}>
-                                {newTotalBalance > 0 ? 'Driver Owes Fleet' : newTotalBalance < 0 ? 'Fleet Owes Driver' : 'Settled ✓'}
+                            <Row label="New Total" value={Math.abs(newTotalBalance)} highlight warning={newTotalBalance < 0} />
+                            <p className={clsx("text-[10px] font-bold text-center mt-1", newTotalBalance > 0 ? "text-emerald-600" : newTotalBalance < 0 ? "text-amber-600" : "text-slate-400")}>
+                                {newTotalBalance > 0 ? 'Fleet Owes Driver' : newTotalBalance < 0 ? 'Driver Owes Fleet' : 'Settled ✓'}
                             </p>
                         </Section>
                     </div>
@@ -780,6 +866,34 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                     <p className="text-lg font-black text-emerald-600 tabular-nums">
                                         {totalKm > 0 ? `₹${((netEarnings - driverSalary - totalExpenses) / totalKm).toFixed(1)}` : '—'}
                                     </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Driver Recent History */}
+                    {selectedDriver?.records?.length > 0 && (
+                        <div className="glass-panel p-6 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <History className="w-4 h-4 text-brand-400" />
+                                <h4 className="text-[10px] font-bold text-brand-400 uppercase tracking-[0.2em]">Recent Shifts</h4>
+                            </div>
+                            <div className="space-y-2">
+                                {selectedDriver.records.slice(0, 5).map(r => (
+                                    <div key={r.id} className="flex justify-between items-center text-xs py-1.5 border-b border-brand-50 last:border-0">
+                                        <span className="text-slate-400 font-medium">{new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}</span>
+                                        <div className="flex gap-3 tabular-nums font-bold">
+                                            <span className="text-slate-600">₹{r.totalEarnings?.toFixed(0)}</span>
+                                            <span className="text-emerald-600">₹{r.cashToCashier?.toFixed(0)}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                <span>Date</span>
+                                <div className="flex gap-3">
+                                    <span>Earned</span>
+                                    <span className="text-emerald-500">Cash</span>
                                 </div>
                             </div>
                         </div>
@@ -872,9 +986,9 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                         <h2 className="text-xl font-extrabold text-brand-950">Quick Settle</h2>
                         <p className="text-sm font-semibold mt-1">
                             {previousBalance > 0 ? (
-                                <span className="text-amber-600">{selectedDriver.name} owes Fleet ₹{Math.abs(previousBalance).toFixed(0)}</span>
-                            ) : (
                                 <span className="text-emerald-600">Fleet owes {selectedDriver.name} ₹{Math.abs(previousBalance).toFixed(0)}</span>
+                            ) : (
+                                <span className="text-amber-600">{selectedDriver.name} owes Fleet ₹{Math.abs(previousBalance).toFixed(0)}</span>
                             )}
                         </p>
                     </div>
@@ -890,6 +1004,49 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                         <button type="button" onClick={handleQuickSettle} disabled={settling || !settleAmount}
                             className="flex-1 py-3.5 rounded-2xl font-bold bg-gradient-to-r from-brand-600 to-pink-500 text-white shadow-xl shadow-brand-500/30 hover:-translate-y-0.5 transition-transform active:scale-95 disabled:opacity-50">
                             {settling ? 'Settling...' : 'Settle Now'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* Post-Submit Action Screen */}
+        {showPostSubmit && (
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+                <div className="bg-white w-full sm:max-w-sm rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl p-6 sm:p-8 animate-scaleIn">
+                    <div className="text-center mb-6">
+                        <div className="mx-auto w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-3">
+                            <CheckCircle2 className="w-7 h-7" />
+                        </div>
+                        <h2 className="text-xl font-extrabold text-brand-950">Record Saved!</h2>
+                        <p className="text-sm text-slate-400 mt-1">{selectedDriver?.name}'s shift for {date}</p>
+                    </div>
+
+                    <div className="bg-brand-50/50 rounded-2xl p-4 mb-6 space-y-2 text-sm">
+                        <div className="flex justify-between"><span className="text-slate-500">Gross</span><span className="font-bold">₹{totalEarnings.toFixed(0)}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Salary</span><span className="font-bold">₹{driverSalary.toFixed(0)}</span></div>
+                        <div className="flex justify-between"><span className="text-slate-500">Cash Handover</span><span className="font-bold">₹{v(cashToCashier).toFixed(0)}</span></div>
+                        <div className="h-px bg-brand-100"></div>
+                        <div className="flex justify-between"><span className="text-slate-500 font-bold">Balance</span><span className="font-black text-brand-700">₹{Math.abs(newTotalBalance).toFixed(0)} ({balanceLabel(newTotalBalance)})</span></div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <button type="button"
+                            onClick={() => window.open(`https://wa.me/?text=${generateWhatsAppMessage()}`, '_blank')}
+                            className="w-full py-3.5 rounded-2xl font-bold bg-emerald-500 text-white shadow-lg shadow-emerald-500/30 hover:-translate-y-0.5 transition-transform active:scale-95 flex justify-center items-center gap-2">
+                            <Send className="w-4 h-4" /> Share on WhatsApp
+                        </button>
+                        <button type="button" onClick={handleCopyReport}
+                            className="w-full py-3.5 rounded-2xl font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors active:scale-95 flex justify-center items-center gap-2">
+                            <Copy className="w-4 h-4" /> {copied ? 'Copied!' : 'Copy Report'}
+                        </button>
+                        <button type="button" onClick={handleNextDriver}
+                            className="w-full py-3.5 rounded-2xl font-bold bg-gradient-to-r from-brand-600 to-pink-500 text-white shadow-xl shadow-brand-500/30 hover:-translate-y-0.5 transition-transform active:scale-95 flex justify-center items-center gap-2">
+                            <ArrowRight className="w-4 h-4" /> Next Driver
+                        </button>
+                        <button type="button" onClick={handleClosePostSubmit}
+                            className="w-full py-2.5 rounded-2xl font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors text-sm">
+                            Close
                         </button>
                     </div>
                 </div>
