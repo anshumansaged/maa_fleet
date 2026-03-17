@@ -195,7 +195,8 @@ export default function DriverForm() {
 
     const totalCommission = activePlatforms.reduce((s, p) => {
         const plat = ALL_PLATFORMS.find(x => x.id === p);
-        return s + (plat?.hasComm ? v(commissions[p + 'Comm']) : 0);
+        // Only count commission if that platform has earnings
+        return s + (plat?.hasComm && v(earnings[p]) > 0 ? v(commissions[p + 'Comm']) : 0);
     }, 0);
 
     const netEarnings = totalEarnings - totalCommission;
