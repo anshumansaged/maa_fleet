@@ -101,6 +101,61 @@ app.get('/api/drivers', async (req, res) => {
 });
 
 // ======================================================================
+// DRIVER REPORT — Full history for a single driver
+// ======================================================================
+app.get('/api/drivers/:id/report', async (req, res) => {
+  try {
+    const driver = await prisma.driver.findUnique({
+      where: { id: req.params.id },
+      include: { records: true, settlements: true, miscExpenses: true }
+    });
+    if (!driver) return res.status(404).json({ error: 'Driver not found' });
+
+    // Compute running balance
+    let balance = 0;
+    driver.records.forEach(r => {
+      balance += r.pendingSalary;
+      balance -= (r.cashInHand - r.cashToCashier);
+    });
+    driver.settlements.forEach(s => { balance += s.amount; });
+
+    // Sort records by date desc
+    const sortedRecords = driver.records.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // Earnings over time (last 30 records, sorted asc for chart)
+    const chartData = sortedRecords.slice(0, 30).reverse().map(r => ({
+      date: r.date,
+      earnings: r.totalEarnings,
+      netEarnings: r.netEarnings,
+      salary: r.driverSalary,
+      cashToCashier: r.cashToCashier,
+      km: r.totalKm,
+    }));
+
+    // Aggregates
+    const totalEarnings = driver.records.reduce((s, r) => s + r.totalEarnings, 0);
+    const totalNet = driver.records.reduce((s, r) => s + r.netEarnings, 0);
+    const totalSalary = driver.records.reduce((s, r) => s + r.driverSalary, 0);
+    const totalCash = driver.records.reduce((s, r) => s + r.cashToCashier, 0);
+    const totalKm = driver.records.reduce((s, r) => s + r.totalKm, 0);
+    const totalMisc = driver.miscExpenses.reduce((s, e) => s + e.amount, 0);
+
+    res.json({
+      driver: { id: driver.id, name: driver.name, phone: driver.phone, salaryPercentage: driver.salaryPercentage },
+      currentBalance: balance,
+      summary: { totalEarnings, totalNet, totalSalary, totalCash, totalKm, totalMisc, totalRecords: driver.records.length },
+      chartData,
+      records: sortedRecords,
+      settlements: driver.settlements.sort((a, b) => new Date(b.date) - new Date(a.date)),
+      miscExpenses: driver.miscExpenses.sort((a, b) => new Date(b.date) - new Date(a.date)),
+    });
+  } catch (error) {
+    console.error("Error fetching driver report:", error);
+    res.status(500).json({ error: 'Failed to fetch driver report' });
+  }
+});
+
+// ======================================================================
 // DAILY RECORDS
 // ======================================================================
 app.post('/api/records', async (req, res) => {
@@ -169,6 +224,74 @@ app.get('/api/records', async (req, res) => {
     res.json(records);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch records' });
+  }
+});
+
+app.get('/api/records/:id', async (req, res) => {
+  try {
+    const record = await prisma.dailyRecord.findUnique({
+      where: { id: req.params.id },
+      include: { driver: true }
+    });
+    if (!record) return res.status(404).json({ error: 'Record not found' });
+    res.json(record);
+  } catch (error) {
+    console.error("Error fetching record:", error);
+    res.status(500).json({ error: 'Failed to fetch record' });
+  }
+});
+
+app.put('/api/records/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.dailyRecord.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Record not found' });
+
+    const driver = await prisma.driver.findUnique({ where: { id: existing.driverId } });
+    if (!driver) return res.status(404).json({ error: 'Driver not found' });
+
+    const { date, carNumber, ...inputs } = req.body;
+    const val = (num) => isNaN(parseFloat(num)) ? 0 : parseFloat(num);
+    const intVal = (num) => isNaN(parseInt(num, 10)) ? 0 : parseInt(num, 10);
+
+    const startKm = val(inputs.startKm), endKm = val(inputs.endKm), totalKm = val(inputs.totalKm);
+    const yatriTrips = intVal(inputs.yatriTrips);
+    const cashToCashier = val(inputs.cashToCashier);
+    const fuelDetails = Array.isArray(inputs.fuelDetails) ? inputs.fuelDetails : [];
+
+    const uber = val(inputs.uber), inDrive = val(inputs.inDrive), yatri = val(inputs.yatri), rapido = val(inputs.rapido), offline = val(inputs.offline);
+    const uberComm = val(inputs.uberComm), yatriComm = val(inputs.yatriComm);
+    const uberCash = val(inputs.uberCash), inDriveCash = val(inputs.inDriveCash), yatriCash = val(inputs.yatriCash), rapidoCash = val(inputs.rapidoCash), offlineCash = val(inputs.offlineCash);
+    const fuel = val(inputs.fuel), otherExpenses = val(inputs.otherExpenses), onlinePayments = val(inputs.onlinePayments);
+
+    const totalEarnings = uber + inDrive + yatri + rapido + offline;
+    const totalCommission = uberComm + yatriComm;
+    const netEarnings = totalEarnings - totalCommission;
+    const driverSalary = netEarnings * driver.salaryPercentage;
+    const totalCash = uberCash + inDriveCash + yatriCash + rapidoCash + offlineCash;
+    const totalExpenses = fuel + otherExpenses;
+    const cashInHand = totalCash - totalExpenses - onlinePayments;
+    const pendingSalary = driverSalary;
+
+    const record = await prisma.dailyRecord.update({
+      where: { id },
+      data: {
+        carNumber,
+        date: date ? new Date(date) : existing.date,
+        startKm, endKm, totalKm, yatriTrips, cashToCashier, fuelDetails,
+        uber, inDrive, yatri, rapido, offline,
+        uberComm, yatriComm,
+        uberCash, inDriveCash, yatriCash, rapidoCash, offlineCash,
+        fuel, otherExpenses, onlinePayments,
+        totalEarnings, totalCommission, netEarnings, driverSalary,
+        totalCash, totalExpenses, cashInHand, pendingSalary
+      }
+    });
+
+    res.json(record);
+  } catch (error) {
+    console.error("Error updating record:", error);
+    res.status(500).json({ error: 'Failed to update record', details: error.message });
   }
 });
 
@@ -463,6 +586,11 @@ app.get('/api/daily-summary', async (req, res) => {
     const totalFuel = records.reduce((s, r) => s + r.fuel, 0);
     const totalSalary = records.reduce((s, r) => s + r.driverSalary, 0);
 
+    const totalCommission = records.reduce((s, r) => s + r.totalCommission, 0);
+    const totalNet = records.reduce((s, r) => s + r.netEarnings, 0);
+    const totalExpenses = records.reduce((s, r) => s + r.totalExpenses, 0);
+    const totalOnline = records.reduce((s, r) => s + r.onlinePayments, 0);
+
     res.json({
       date,
       recordCount: records.length,
@@ -471,12 +599,33 @@ app.get('/api/daily-summary', async (req, res) => {
       totalCashCollected,
       totalFuel,
       totalSalary,
+      totalCommission,
+      totalNet,
+      totalExpenses,
+      totalOnline,
       driverRecords: records.map(r => ({
+        id: r.id,
+        driverId: r.driverId,
         driverName: r.driver?.name,
+        carNumber: r.carNumber,
         totalEarnings: r.totalEarnings,
-        cashToCashier: r.cashToCashier,
+        netEarnings: r.netEarnings,
+        totalCommission: r.totalCommission,
         driverSalary: r.driverSalary,
+        totalCash: r.totalCash,
+        cashToCashier: r.cashToCashier,
+        cashInHand: r.cashInHand,
         fuel: r.fuel,
+        totalExpenses: r.totalExpenses,
+        onlinePayments: r.onlinePayments,
+        totalKm: r.totalKm,
+        startKm: r.startKm,
+        endKm: r.endKm,
+        uber: r.uber,
+        inDrive: r.inDrive,
+        yatri: r.yatri,
+        rapido: r.rapido,
+        offline: r.offline,
         balance: balanceMap[r.driverId]?.balance || 0
       })),
       allBalances: Object.entries(balanceMap)

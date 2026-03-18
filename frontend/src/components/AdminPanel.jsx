@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Fuel, AlertCircle, TrendingUp, Wallet, CheckCircle2, Clock, BarChart3, ArrowUpRight, ArrowDownRight, Plus, X, Wrench, FileText, Shield, CircleDollarSign, User, Car, Trash2, Send, Copy } from 'lucide-react';
+import { Fuel, AlertCircle, TrendingUp, Wallet, CheckCircle2, Clock, BarChart3, ArrowUpRight, ArrowDownRight, Plus, X, Wrench, FileText, Shield, CircleDollarSign, User, Car, Trash2, Send, Copy, Edit3, Calendar, ChevronLeft, ChevronRight, History, Eye } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { format } from 'date-fns';
 import clsx from 'clsx';
 
@@ -65,6 +66,21 @@ export default function AdminPanel() {
     const [showMiscForm, setShowMiscForm] = useState(false);
     const [miscForm, setMiscForm] = useState({ category: 'denting_painting', amount: '', description: '', carNumber: '', driverId: '', date: new Date().toISOString().split('T')[0] });
     const [miscSubmitting, setMiscSubmitting] = useState(false);
+
+    // Feature 4: Edit record modal
+    const [editRecord, setEditRecord] = useState(null);
+    const [editForm, setEditForm] = useState({});
+    const [editLoading, setEditLoading] = useState(false);
+    const [editSaving, setEditSaving] = useState(false);
+
+    // Feature 5: Driver report modal
+    const [driverReport, setDriverReport] = useState(null);
+    const [driverReportLoading, setDriverReportLoading] = useState(false);
+
+    // Feature 6: Date-wise daily report
+    const [dailyReportDate, setDailyReportDate] = useState(new Date().toISOString().split('T')[0]);
+    const [dailyReport, setDailyReport] = useState(null);
+    const [dailyReportLoading, setDailyReportLoading] = useState(false);
 
     useEffect(() => { fetchAll(); }, [range]);
 
@@ -226,6 +242,90 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
         }
     };
 
+    // Feature 4: Edit record
+    const handleEditRecord = async (id) => {
+        setEditLoading(true);
+        try {
+            const { data } = await axios.get(`${API_URL}/records/${id}`);
+            setEditRecord(data);
+            setEditForm({
+                carNumber: data.carNumber || '',
+                date: data.date ? new Date(data.date).toISOString().split('T')[0] : '',
+                startKm: data.startKm || '',
+                endKm: data.endKm || '',
+                totalKm: data.totalKm || '',
+                yatriTrips: data.yatriTrips || '',
+                uber: data.uber || '',
+                inDrive: data.inDrive || '',
+                yatri: data.yatri || '',
+                rapido: data.rapido || '',
+                offline: data.offline || '',
+                uberComm: data.uberComm || '',
+                yatriComm: data.yatriComm || '',
+                uberCash: data.uberCash || '',
+                inDriveCash: data.inDriveCash || '',
+                yatriCash: data.yatriCash || '',
+                rapidoCash: data.rapidoCash || '',
+                offlineCash: data.offlineCash || '',
+                fuel: data.fuel || '',
+                fuelDetails: data.fuelDetails || [],
+                otherExpenses: data.otherExpenses || '',
+                onlinePayments: data.onlinePayments || '',
+                cashToCashier: data.cashToCashier || '',
+            });
+        } catch (err) {
+            alert("Failed to load record");
+        } finally { setEditLoading(false); }
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editRecord) return;
+        setEditSaving(true);
+        try {
+            await axios.put(`${API_URL}/records/${editRecord.id}`, {
+                ...editForm,
+                totalKm: (parseFloat(editForm.endKm) || 0) > (parseFloat(editForm.startKm) || 0)
+                    ? (parseFloat(editForm.endKm) || 0) - (parseFloat(editForm.startKm) || 0)
+                    : 0,
+            });
+            setEditRecord(null);
+            fetchAll();
+        } catch (err) {
+            alert("Failed to save: " + (err.response?.data?.error || err.message));
+        } finally { setEditSaving(false); }
+    };
+
+    // Feature 5: Driver report
+    const handleOpenDriverReport = async (driverId) => {
+        setDriverReportLoading(true);
+        try {
+            const { data } = await axios.get(`${API_URL}/drivers/${driverId}/report`);
+            setDriverReport(data);
+        } catch (err) {
+            alert("Failed to load driver report");
+        } finally { setDriverReportLoading(false); }
+    };
+
+    // Feature 6: Date-wise daily report
+    const fetchDailyReport = async (dateStr) => {
+        setDailyReportLoading(true);
+        try {
+            const { data } = await axios.get(`${API_URL}/daily-summary?date=${dateStr}`);
+            setDailyReport(data);
+        } catch (err) {
+            alert("Failed to load daily report");
+        } finally { setDailyReportLoading(false); }
+    };
+
+    const shiftDailyReportDate = (days) => {
+        const d = new Date(dailyReportDate);
+        d.setDate(d.getDate() + days);
+        const newDate = d.toISOString().split('T')[0];
+        setDailyReportDate(newDate);
+        fetchDailyReport(newDate);
+    };
+
+
     const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
 
     if (loading && !overview) return (
@@ -290,6 +390,7 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                     { key: 'cashier', label: 'Cashier' },
                     { key: 'expenses', label: 'Expenses' },
                     { key: 'ledger', label: 'Ledger' },
+                    { key: 'daily', label: 'Daily Report' },
                 ].map(t => (
                     <button key={t.key} onClick={() => setActiveTab(t.key)}
                         className={clsx("px-3 sm:px-5 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transition-all duration-300",
@@ -374,7 +475,11 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                         <tbody className="divide-y divide-brand-50 text-sm">
                             {driverStats.map(d => (
                                 <tr key={d.id} className="hover:bg-brand-50/50 transition-colors">
-                                    <td className="px-6 py-4 font-bold text-brand-950 capitalize">{d.name}</td>
+                                    <td className="px-6 py-4 font-bold text-brand-950 capitalize">
+                                        <button onClick={() => handleOpenDriverReport(d.id)} className="hover:text-brand-600 underline decoration-brand-200 underline-offset-2 transition-colors flex items-center gap-1.5">
+                                            {d.name} <Eye className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </button>
+                                    </td>
                                     <td className="px-4 py-4 text-right tabular-nums text-slate-600">{fmt(d.totalEarnings)}</td>
                                     <td className="px-4 py-4 text-right tabular-nums text-slate-600">{fmt(d.netEarnings)}</td>
                                     <td className="px-4 py-4 text-right tabular-nums text-slate-600">{fmt(d.driverSalary)}</td>
@@ -834,9 +939,14 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                                     </td>
                                     <td className="px-6 py-4 text-right font-black text-brand-950 text-base tabular-nums">{fmt(r.cashInHand)}</td>
                                     <td className="px-6 py-4 text-center">
-                                        <button onClick={() => handleDeleteRecord(r.id)} className="p-2 text-slate-300 hover:text-rose-600 transition hover:bg-rose-50 rounded-xl" title="Delete Record">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex items-center justify-center gap-1">
+                                            <button onClick={() => handleEditRecord(r.id)} className="p-2 text-slate-300 hover:text-brand-600 transition hover:bg-brand-50 rounded-xl" title="Edit Record">
+                                                <Edit3 className="w-4 h-4" />
+                                            </button>
+                                            <button onClick={() => handleDeleteRecord(r.id)} className="p-2 text-slate-300 hover:text-rose-600 transition hover:bg-rose-50 rounded-xl" title="Delete Record">
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -931,6 +1041,419 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
                             </button>
                             <button type="button" onClick={() => setSettleSuccess(null)}
                                 className="w-full py-2.5 rounded-2xl font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors text-sm">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Feature 6: Date-wise Daily Report Tab */}
+            {activeTab === 'daily' && (
+                <div className="glass-panel overflow-hidden">
+                    <div className="p-6 border-b border-brand-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 className="text-lg font-extrabold text-brand-950 flex items-center gap-2">
+                                <Calendar className="w-5 h-5 text-brand-400" /> Date-wise Daily Report
+                            </h2>
+                            <p className="text-xs text-slate-400 mt-1">Pick a date to see all drivers' data for that day.</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => shiftDailyReportDate(-1)} className="p-2 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-600 transition active:scale-90">
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+                            <input type="date" value={dailyReportDate} onChange={e => { setDailyReportDate(e.target.value); fetchDailyReport(e.target.value); }}
+                                className="clean-input rounded-xl px-4 py-2 text-sm font-bold" />
+                            <button onClick={() => shiftDailyReportDate(1)} className="p-2 rounded-xl bg-brand-50 hover:bg-brand-100 text-brand-600 transition active:scale-90">
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => fetchDailyReport(dailyReportDate)} className="px-4 py-2 rounded-xl text-sm font-bold bg-brand-600 text-white hover:bg-brand-700 transition active:scale-95">
+                                Load
+                            </button>
+                        </div>
+                    </div>
+
+                    {dailyReportLoading && (
+                        <div className="flex justify-center py-12">
+                            <div className="w-10 h-10 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
+                        </div>
+                    )}
+
+                    {dailyReport && !dailyReportLoading && (
+                        <div className="p-6 space-y-6">
+                            {dailyReport.recordCount === 0 ? (
+                                <p className="text-center text-slate-400 py-8">No records for {dailyReport.date}.</p>
+                            ) : (
+                                <>
+                                    {/* Daily Totals */}
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                                        <div className="surface-card p-3 text-center">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Gross</p>
+                                            <p className="text-lg font-black text-brand-950 tabular-nums">{fmt(dailyReport.totalEarnings)}</p>
+                                        </div>
+                                        <div className="surface-card p-3 text-center">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Net</p>
+                                            <p className="text-lg font-black text-brand-700 tabular-nums">{fmt(dailyReport.totalNet)}</p>
+                                        </div>
+                                        <div className="surface-card p-3 text-center">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Cash Collected</p>
+                                            <p className="text-lg font-black text-emerald-600 tabular-nums">{fmt(dailyReport.totalCashCollected)}</p>
+                                        </div>
+                                        <div className="surface-card p-3 text-center">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Salaries</p>
+                                            <p className="text-lg font-black text-amber-600 tabular-nums">{fmt(dailyReport.totalSalary)}</p>
+                                        </div>
+                                        <div className="surface-card p-3 text-center">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Fuel</p>
+                                            <p className="text-lg font-black text-rose-600 tabular-nums">{fmt(dailyReport.totalFuel)}</p>
+                                        </div>
+                                        <div className="surface-card p-3 text-center">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase">Shifts</p>
+                                            <p className="text-lg font-black text-brand-600 tabular-nums">{dailyReport.recordCount}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Per-driver cards */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Per Driver</h3>
+                                        {dailyReport.driverRecords.map(r => (
+                                            <div key={r.id} className="surface-card p-4 sm:p-5 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center font-black text-sm">
+                                                            {r.driverName?.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-brand-950 capitalize">{r.driverName}</h4>
+                                                            <p className="text-[10px] text-slate-400 uppercase font-bold">{r.carNumber || 'N/A'} — {r.totalKm || 0} km</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-lg font-black text-brand-950 tabular-nums">{fmt(r.totalEarnings)}</p>
+                                                        <p className="text-[10px] text-slate-400 font-bold">Gross Earnings</p>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center">
+                                                    {[
+                                                        { label: 'Uber', val: r.uber },
+                                                        { label: 'InDrive', val: r.inDrive },
+                                                        { label: 'Yatri', val: r.yatri },
+                                                        { label: 'Rapido', val: r.rapido },
+                                                        { label: 'Offline', val: r.offline },
+                                                    ].filter(p => p.val > 0).map(p => (
+                                                        <div key={p.label} className="bg-brand-50 rounded-lg p-2">
+                                                            <p className="text-[9px] font-bold text-slate-400 uppercase">{p.label}</p>
+                                                            <p className="text-xs font-black text-brand-700 tabular-nums">{fmt(p.val)}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                                    <div className="flex justify-between"><span className="text-slate-400">Net</span><span className="font-bold">{fmt(r.netEarnings)}</span></div>
+                                                    <div className="flex justify-between"><span className="text-slate-400">Salary</span><span className="font-bold">{fmt(r.driverSalary)}</span></div>
+                                                    <div className="flex justify-between"><span className="text-slate-400">Cash Given</span><span className="font-bold text-emerald-600">{fmt(r.cashToCashier)}</span></div>
+                                                    <div className="flex justify-between">
+                                                        <span className="text-slate-400">Balance</span>
+                                                        <span className={clsx("font-bold", r.balance > 0 ? "text-rose-600" : r.balance < 0 ? "text-emerald-600" : "text-slate-400")}>
+                                                            {fmt(Math.abs(r.balance))} {r.balance > 0 ? '(Fleet owes)' : r.balance < 0 ? '(Driver owes)' : ''}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Pending Balances */}
+                                    {dailyReport.allBalances.length > 0 && (
+                                        <div>
+                                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Pending Balances</h3>
+                                            <div className="flex flex-wrap gap-3">
+                                                {dailyReport.allBalances.map(b => (
+                                                    <div key={b.id} className="surface-card px-4 py-3 flex items-center gap-3">
+                                                        <span className="font-bold text-brand-950 capitalize">{b.name}</span>
+                                                        <span className={clsx("font-black tabular-nums", b.balance > 0 ? "text-rose-600" : "text-emerald-600")}>
+                                                            {fmt(Math.abs(b.balance))}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 font-bold">
+                                                            {b.balance > 0 ? 'Fleet owes' : 'Driver owes'}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {!dailyReport && !dailyReportLoading && (
+                        <div className="p-12 text-center text-slate-400">
+                            <Calendar className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                            <p className="font-bold">Select a date and click Load</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Feature 4: Edit Record Modal */}
+            {editRecord && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-white w-full sm:max-w-lg rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-scaleIn max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 sm:p-8 space-y-5">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-xl font-extrabold text-brand-950 flex items-center gap-2">
+                                        <Edit3 className="w-5 h-5 text-brand-600" /> Edit Record
+                                    </h2>
+                                    <p className="text-sm text-slate-400 mt-1 capitalize">{editRecord.driver?.name} — {editForm.date}</p>
+                                </div>
+                                <button onClick={() => setEditRecord(null)} className="p-2 rounded-xl hover:bg-slate-100 transition">
+                                    <X className="w-5 h-5 text-slate-400" />
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {/* Basic */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Car</label>
+                                        <select value={editForm.carNumber} onChange={e => setEditForm({ ...editForm, carNumber: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm uppercase">
+                                            {PREDEFINED_CARS.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Date</label>
+                                        <input type="date" value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm" />
+                                    </div>
+                                </div>
+
+                                {/* KM */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Start KM</label>
+                                        <input type="number" value={editForm.startKm} onChange={e => setEditForm({ ...editForm, startKm: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">End KM</label>
+                                        <input type="number" value={editForm.endKm} onChange={e => setEditForm({ ...editForm, endKm: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                    </div>
+                                </div>
+
+                                {/* Earnings */}
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Platform Earnings</label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                        {[
+                                            { key: 'uber', label: 'Uber' }, { key: 'inDrive', label: 'InDrive' },
+                                            { key: 'yatri', label: 'Yatri' }, { key: 'rapido', label: 'Rapido' },
+                                            { key: 'offline', label: 'Offline' },
+                                        ].map(p => (
+                                            <div key={p.key} className="space-y-0.5">
+                                                <label className="text-[9px] text-slate-400 font-bold">{p.label}</label>
+                                                <input type="number" value={editForm[p.key] || ''} onChange={e => setEditForm({ ...editForm, [p.key]: e.target.value })}
+                                                    className="clean-input w-full rounded-lg px-2 py-2 text-sm font-bold" placeholder="0" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Cash */}
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase block mb-2">Platform Cash</label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                        {[
+                                            { key: 'uberCash', label: 'Uber Cash' }, { key: 'inDriveCash', label: 'InDrive Cash' },
+                                            { key: 'yatriCash', label: 'Yatri Cash' }, { key: 'rapidoCash', label: 'Rapido Cash' },
+                                            { key: 'offlineCash', label: 'Offline Cash' },
+                                        ].map(p => (
+                                            <div key={p.key} className="space-y-0.5">
+                                                <label className="text-[9px] text-slate-400 font-bold">{p.label}</label>
+                                                <input type="number" value={editForm[p.key] || ''} onChange={e => setEditForm({ ...editForm, [p.key]: e.target.value })}
+                                                    className="clean-input w-full rounded-lg px-2 py-2 text-sm font-bold" placeholder="0" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Commissions */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Uber Commission</label>
+                                        <input type="number" value={editForm.uberComm || ''} onChange={e => setEditForm({ ...editForm, uberComm: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Yatri Commission</label>
+                                        <input type="number" value={editForm.yatriComm || ''} onChange={e => setEditForm({ ...editForm, yatriComm: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                    </div>
+                                </div>
+
+                                {/* Expenses */}
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel</label>
+                                        <input type="number" value={editForm.fuel || ''} onChange={e => setEditForm({ ...editForm, fuel: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Other Exp</label>
+                                        <input type="number" value={editForm.otherExpenses || ''} onChange={e => setEditForm({ ...editForm, otherExpenses: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Online Pay</label>
+                                        <input type="number" value={editForm.onlinePayments || ''} onChange={e => setEditForm({ ...editForm, onlinePayments: e.target.value })}
+                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                    </div>
+                                </div>
+
+                                {/* Cash to Cashier */}
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase">Cash to Cashier</label>
+                                    <input type="number" value={editForm.cashToCashier || ''} onChange={e => setEditForm({ ...editForm, cashToCashier: e.target.value })}
+                                        className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button onClick={() => setEditRecord(null)} className="flex-1 py-3.5 rounded-2xl font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">Cancel</button>
+                                <button onClick={handleSaveEdit} disabled={editSaving}
+                                    className="flex-1 py-3.5 rounded-2xl font-bold bg-brand-600 text-white shadow-xl shadow-brand-500/30 hover:-translate-y-0.5 transition-transform active:scale-95 disabled:opacity-50 flex justify-center items-center gap-2">
+                                    <CheckCircle2 className="w-4 h-4" /> {editSaving ? 'Saving...' : 'Save Changes'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Feature 5: Driver Report Modal */}
+            {driverReport && (
+                <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-white w-full sm:max-w-2xl rounded-t-[2rem] sm:rounded-[2rem] shadow-2xl animate-scaleIn max-h-[90vh] overflow-y-auto">
+                        <div className="p-6 sm:p-8 space-y-6">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-xl font-extrabold text-brand-950 flex items-center gap-2">
+                                        <User className="w-5 h-5 text-brand-600" /> Driver Report
+                                    </h2>
+                                    <p className="text-lg font-bold text-brand-700 mt-1 capitalize">{driverReport.driver.name}</p>
+                                </div>
+                                <button onClick={() => setDriverReport(null)} className="p-2 rounded-xl hover:bg-slate-100 transition">
+                                    <X className="w-5 h-5 text-slate-400" />
+                                </button>
+                            </div>
+
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <div className="surface-card p-3 text-center">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Total Earnings</p>
+                                    <p className="text-lg font-black text-brand-950 tabular-nums">{fmt(driverReport.summary.totalEarnings)}</p>
+                                </div>
+                                <div className="surface-card p-3 text-center">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Total Salary</p>
+                                    <p className="text-lg font-black text-brand-700 tabular-nums">{fmt(driverReport.summary.totalSalary)}</p>
+                                </div>
+                                <div className="surface-card p-3 text-center">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Cash Given</p>
+                                    <p className="text-lg font-black text-emerald-600 tabular-nums">{fmt(driverReport.summary.totalCash)}</p>
+                                </div>
+                                <div className="surface-card p-3 text-center">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Total KM</p>
+                                    <p className="text-lg font-black text-brand-950 tabular-nums">{driverReport.summary.totalKm.toFixed(0)}</p>
+                                </div>
+                                <div className="surface-card p-3 text-center">
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Records</p>
+                                    <p className="text-lg font-black text-brand-600 tabular-nums">{driverReport.summary.totalRecords}</p>
+                                </div>
+                                <div className={clsx("surface-card p-3 text-center", driverReport.currentBalance !== 0 && "!border-brand-300 ring-2 ring-brand-100")}>
+                                    <p className="text-[10px] font-bold text-slate-400 uppercase">Balance</p>
+                                    <p className={clsx("text-lg font-black tabular-nums", driverReport.currentBalance > 0 ? "text-rose-600" : driverReport.currentBalance < 0 ? "text-emerald-600" : "text-slate-400")}>
+                                        {fmt(Math.abs(driverReport.currentBalance))}
+                                    </p>
+                                    <p className="text-[9px] font-bold text-slate-400">
+                                        {driverReport.currentBalance > 0 ? 'Fleet owes' : driverReport.currentBalance < 0 ? 'Driver owes' : 'Settled'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Earnings Chart */}
+                            {driverReport.chartData.length > 1 && (
+                                <div>
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Earnings Over Time</h3>
+                                    <div className="h-48 sm:h-56">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={driverReport.chartData}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                                <XAxis dataKey="date" tickFormatter={d => format(new Date(d), 'dd MMM')} tick={{ fontSize: 10 }} />
+                                                <YAxis tick={{ fontSize: 10 }} tickFormatter={v => `₹${v}`} />
+                                                <Tooltip formatter={(v) => [`₹${v}`, '']} labelFormatter={d => format(new Date(d), 'dd MMM yyyy')} />
+                                                <Line type="monotone" dataKey="earnings" stroke="#6366f1" strokeWidth={2} dot={false} name="Gross" />
+                                                <Line type="monotone" dataKey="salary" stroke="#f59e0b" strokeWidth={2} dot={false} name="Salary" />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Full Record History */}
+                            <div>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <History className="w-3.5 h-3.5" /> Shift History
+                                </h3>
+                                <div className="max-h-60 overflow-y-auto space-y-1.5">
+                                    {driverReport.records.map(r => (
+                                        <div key={r.id} className="flex justify-between items-center text-xs py-2 px-3 border-b border-brand-50 last:border-0 hover:bg-brand-50/50 rounded-lg">
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-slate-400 font-medium w-16">{format(new Date(r.date), 'dd MMM')}</span>
+                                                <span className="text-[9px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded uppercase">{r.carNumber}</span>
+                                            </div>
+                                            <div className="flex gap-4 tabular-nums font-bold">
+                                                <span className="text-slate-600">{fmt(r.totalEarnings)}</span>
+                                                <span className="text-emerald-600">{fmt(r.cashToCashier)}</span>
+                                                <span className="text-brand-700 w-16 text-right">{r.totalKm} km</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Settlement Log */}
+                            {driverReport.settlements.length > 0 && (
+                                <div>
+                                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                        <Wallet className="w-3.5 h-3.5" /> Settlement Log
+                                    </h3>
+                                    <div className="max-h-40 overflow-y-auto space-y-1.5">
+                                        {driverReport.settlements.map(s => (
+                                            <div key={s.id} className="flex justify-between items-center text-xs py-2 px-3 border-b border-brand-50 last:border-0">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-slate-400 font-medium">{format(new Date(s.date), 'dd MMM yyyy')}</span>
+                                                    <span className={clsx("px-2 py-0.5 rounded text-[9px] font-bold uppercase",
+                                                        (s.method || 'cash') === 'upi' ? "bg-brand-100 text-brand-700" : "bg-slate-100 text-slate-500")}>
+                                                        {s.method || 'cash'}
+                                                    </span>
+                                                    <span className={clsx("px-2 py-0.5 rounded text-[9px] font-bold",
+                                                        s.amount > 0 ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>
+                                                        {s.amount > 0 ? 'Received' : 'Paid'}
+                                                    </span>
+                                                </div>
+                                                <span className={clsx("font-black tabular-nums", s.amount > 0 ? "text-emerald-600" : "text-rose-600")}>
+                                                    {fmt(Math.abs(s.amount))}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <button onClick={() => setDriverReport(null)}
+                                className="w-full py-3 rounded-2xl font-bold bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors">
                                 Close
                             </button>
                         </div>
