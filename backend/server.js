@@ -184,8 +184,10 @@ app.post('/api/records', async (req, res) => {
     const netEarnings = totalEarnings - totalCommission;
     const driverSalary = netEarnings * driver.salaryPercentage;
     const totalCash = uberCash + inDriveCash + yatriCash + rapidoCash + offlineCash;
-    const totalExpenses = fuel + otherExpenses;
+    const fleetPaidFuel = fuelDetails.filter(f => f.paidBy === 'fleet').reduce((s, f) => s + val(f.amount), 0);
+    const driverPaidFuel = fuel - fleetPaidFuel;
 
+    const totalExpenses = driverPaidFuel + otherExpenses; // Only driver-paid fuel affects their cash holding
     let cashInHand = totalCash - totalExpenses - onlinePayments;
     let pendingSalary = driverSalary; // Always pending initially in ledger
 
@@ -269,7 +271,10 @@ app.put('/api/records/:id', async (req, res) => {
     const netEarnings = totalEarnings - totalCommission;
     const driverSalary = netEarnings * driver.salaryPercentage;
     const totalCash = uberCash + inDriveCash + yatriCash + rapidoCash + offlineCash;
-    const totalExpenses = fuel + otherExpenses;
+    const fleetPaidFuel = fuelDetails.filter(f => f.paidBy === 'fleet').reduce((s, f) => s + val(f.amount), 0);
+    const driverPaidFuel = fuel - fleetPaidFuel;
+
+    const totalExpenses = driverPaidFuel + otherExpenses;
     const cashInHand = totalCash - totalExpenses - onlinePayments;
     const pendingSalary = driverSalary;
 
@@ -427,8 +432,12 @@ app.get('/api/analytics/overview', async (req, res) => {
 
     const totalMisc = miscAgg._sum.amount || 0;
     const totalDailyExpenses = (agg._sum.totalExpenses || 0) + (agg._sum.onlinePayments || 0);
+    
+    // Total fuel paid directly by fleet (needs to be calculated from records)
+    // For simplicity, overallExpenses includes daily expenses (driver fuel) + misc
+    // But actual profit must deduct all fuel (driver paid + fleet paid implicitly over cash)
     const overallExpenses = totalDailyExpenses + totalMisc;
-    const overallProfit = (agg._sum.netEarnings || 0) - (agg._sum.driverSalary || 0) - totalMisc;
+    const overallProfit = (agg._sum.netEarnings || 0) - (agg._sum.driverSalary || 0) - (agg._sum.fuel || 0) - (agg._sum.otherExpenses || 0) - totalMisc;
 
     res.json({
       totals: agg._sum,
@@ -479,7 +488,9 @@ app.get('/api/analytics/drivers', async (req, res) => {
       const totalMisc = miscAgg._sum.amount || 0;
       const netEarnings = agg._sum.netEarnings || 0;
       const driverSalary = agg._sum.driverSalary || 0;
-      const profit = netEarnings - driverSalary - totalMisc;
+      const driverFuel = agg._sum.fuel || 0;
+      const otherExp = agg._sum.otherExpenses || 0;
+      const profit = netEarnings - driverSalary - driverFuel - otherExp - totalMisc;
 
       results.push({
         id: driver.id,

@@ -1295,10 +1295,56 @@ ${drivers.filter(d => d.currentBalance !== 0).map(d => {
 
                                 {/* Expenses */}
                                 <div className="grid grid-cols-3 gap-3">
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel</label>
-                                        <input type="number" value={editForm.fuel || ''} onChange={e => setEditForm({ ...editForm, fuel: e.target.value })}
-                                            className="clean-input w-full rounded-xl px-3 py-2.5 text-sm font-bold" />
+                                    <div className="space-y-2 col-span-1 sm:col-span-2">
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Fuel Entries</label>
+                                        {(editForm.fuelDetails || []).map((f, i) => (
+                                            <div key={i} className="flex gap-2 items-center bg-brand-50 p-2 rounded-xl">
+                                                <select value={f.type} onChange={e => {
+                                                    const newFd = [...editForm.fuelDetails];
+                                                    newFd[i].type = e.target.value;
+                                                    setEditForm({ ...editForm, fuelDetails: newFd });
+                                                }} className="clean-input w-24 rounded-lg px-2 py-2 text-xs font-bold bg-white text-slate-600">
+                                                    <option value="CNG">CNG</option>
+                                                    <option value="Petrol">Petrol</option>
+                                                    <option value="EV Charge">EV ⚡</option>
+                                                </select>
+                                                <input type="number" min="0" placeholder="0" value={f.amount}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        if (val !== '' && parseFloat(val) < 0) return;
+                                                        const newFd = [...editForm.fuelDetails];
+                                                        newFd[i].amount = val;
+                                                        // Auto-update total fuel scalar
+                                                        const totalFuel = newFd.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+                                                        setEditForm({ ...editForm, fuelDetails: newFd, fuel: totalFuel });
+                                                    }}
+                                                    className="clean-input flex-1 rounded-lg px-3 py-2 text-sm font-bold" />
+                                                <button type="button" onClick={() => {
+                                                    const newFd = [...editForm.fuelDetails];
+                                                    newFd[i].paidBy = newFd[i].paidBy === 'driver' ? 'fleet' : 'driver';
+                                                    setEditForm({ ...editForm, fuelDetails: newFd });
+                                                }}
+                                                    className={`px-2 py-1.5 rounded-lg text-[10px] font-bold transition-all border whitespace-nowrap ${f.paidBy === 'driver' ? "bg-brand-600 text-white border-brand-600" : "bg-pink-500 text-white border-pink-500"}`}>
+                                                    {f.paidBy === 'driver' ? 'Driver Paid' : 'Fleet Paid'}
+                                                </button>
+                                                <button type="button" onClick={() => {
+                                                    const newFd = editForm.fuelDetails.filter((_, idx) => idx !== i);
+                                                    const totalFuel = newFd.reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
+                                                    setEditForm({ ...editForm, fuelDetails: newFd, fuel: totalFuel });
+                                                }} className="p-1.5 text-slate-400 hover:text-rose-500 transition rounded-lg">
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <div className="flex justify-between items-center mt-1">
+                                            <button type="button" onClick={() => {
+                                                const newFd = [...(editForm.fuelDetails || []), { amount: '', type: 'CNG', paidBy: 'driver' }];
+                                                setEditForm({ ...editForm, fuelDetails: newFd });
+                                            }} className="text-[10px] font-bold text-brand-600 flex items-center gap-1 hover:text-brand-700">
+                                                <Plus className="w-3 h-3" /> Add fuel entry
+                                            </button>
+                                            <span className="text-[10px] font-bold text-slate-500">Total: ₹{editForm.fuel || 0}</span>
+                                        </div>
                                     </div>
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold text-slate-400 uppercase">Other Exp</label>

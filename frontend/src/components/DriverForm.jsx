@@ -709,9 +709,7 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                                                 <div className="relative">
                                                     <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="0"
                                                         value={commissions[p.id + 'Comm'] || ''} onChange={e => { const val = e.target.value; if (val !== '' && parseFloat(val) < 0) return; setCommissions({ ...commissions, [p.id + 'Comm']: val }); }}
-                                                        readOnly={!!p.fixedComm}
-                                                        className={clsx("clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold", p.fixedComm && "bg-violet-50 text-violet-700 border-dashed")} />
-                                                    {p.fixedComm && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[7px] bg-violet-100 text-violet-600 px-1 rounded font-bold">FIXED</span>}
+                                                        className="clean-input w-full rounded-lg px-3 py-2.5 text-sm font-bold" />
                                                 </div>
                                             ) : (
                                                 <div className="text-center text-slate-300 text-xs">—</div>
@@ -919,8 +917,9 @@ ${s.allBalances.length > 0 ? s.allBalances.map(b =>
                             <Row label="Paid Today" value={driverSalary} rose />
                             <Row label="Pending" value={0} />
                         </Section>
-                        <Section title="Deductions">
+                        <Section title="Cash Breakdown">
                             <Row label="Total Incoming Cash" value={totalCash} />
+                            <Row label="Driver Salary" value={driverSalary} negative dim />
                             <Row label="Fuel & Exp" value={totalExpenses} negative dim />
                             <Row label="Online Pay" value={onlinePayments} negative dim />
                         </Section>
